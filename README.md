@@ -1,73 +1,213 @@
-# React + TypeScript + Vite
+# block-postgres
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Modelador visual de esquemas **PostgreSQL** no navegador.  
+Interface construída com **React** e **React Flow** (ERD) e edição declarativa via **Google Blockly** (tabelas, colunas, constraints, índices, tipos). Gera **prévia de DDL SQL**, suporta **múltiplos schemas**, exporta/importa o **workspace** em JSON e faz auto-save local.
 
-Currently, two official plugins are available:
+> Escopo atual: **frontend**. O backend para introspecção/aplicação de DDL (Node.js + Express + `pg`) é planejado como fase seguinte, sem quebrar o contrato do modelo.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## Sumário
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- [Recursos](#recursos)
+- [Stack](#stack)
+- [Arquitetura (frontend)](#arquitetura-frontend)
+- [Requisitos](#requisitos)
+- [Instalação e execução](#instalação-e-execução)
+- [Scripts](#scripts)
+- [Estrutura de pastas](#estrutura-de-pastas)
+- [Uso](#uso)
+- [Validação e qualidade](#validação-e-qualidade)
+- [Roadmap](#roadmap)
+- [Referências técnicas](#referências-técnicas)
+- [Licença](#licença)
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Recursos
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Modelagem por blocos (Blockly)**:
+  - `schema`, `enum`, `domain`
+  - `table`, `column` (tipo, nullability, default, `GENERATED AS IDENTITY`, `collate`)
+  - Constraints: `PRIMARY KEY`, `UNIQUE` (com `NULLS NOT DISTINCT`), `CHECK`, `FOREIGN KEY` (on update/delete, `DEFERRABLE`)
+  - Índices: método (`btree`, `hash`, `gin`, `gist`, `brin`), `UNIQUE`, `INCLUDE`, `WHERE`, colunas/expressões
+  - Tipos: built-ins (`uuid`, `text`, `varchar(n)`, `numeric(p,s)`, `timestamp/timestamptz`, `jsonb`, etc.), `enum`, `domain`, `array`, `custom`
+- **ERD (React Flow)**:
+  - Nós = tabelas; arestas = FKs; minimapa, zoom/pan; auto-layout com **elkjs**
+- **Geração de SQL (preview)**:
+  - Ordem: `CREATE SCHEMA` → `CREATE TYPE (ENUM/DOMAIN)` → `CREATE TABLE` → `CREATE INDEX`
+- **Persistência**:
+  - Auto-save em `localStorage`
+  - Export/Import de workspace `.pgjson`
+- **Múltiplos schemas** (padrão `public`)
+- **Validação do modelo** antes de renderizar SQL (erros e avisos)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Stack
+
+- **React + TypeScript**
+- **@xyflow/react (React Flow)** para ERD
+- **elkjs** para auto-layout
+- **Google Blockly** para blocos customizados e toolbox em JSON
+- **Zustand** para estado global
+- **Zod** para validação de metamodelo
+- Build com **Vite**
+
+---
+
+## Arquitetura (frontend)
+
+- **Blockly** é a camada de **edição** do esquema (blocos).  
+- **Conversor**: workspace → **metamodelo JSON** (estrutura tipada).  
+- **Gerador**: metamodelo → **SQL Preview** (DDL).  
+- **React Flow** renderiza **ERD** a partir do mesmo metamodelo (tabelas/FKs).  
+- **Right Pane** exibe **Modelo (JSON)** e **SQL Preview** com ações (Novo, Importar, Salvar, Copiar).
+
+```
+[Blockly] --workspace--> [Model JSON] --(Zod valida)--> [SQL Preview]
+                                   \--> [React Flow ERD]
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Requisitos
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Ubuntu/Linux**
+- **Node.js 20+** e **npm** (ou pnpm/yarn)
+- Navegador moderno
+
+---
+
+## Instalação e execução
+
+Clonar e instalar dependências:
+
+```bash
+git clone https://github.com/vlimap/block-postgres.git
+cd block-postgres
+npm ci
 ```
+
+Executar em modo desenvolvimento:
+
+```bash
+npm run dev
+```
+
+Build de produção:
+
+```bash
+npm run build
+npm run preview
+```
+
+> Caso o projeto ainda não tenha sido inicializado via Vite, crie com:
+> ```bash
+> npm create vite@latest . -- --template react-ts
+> npm i @xyflow/react elkjs blockly zod zustand
+> npm i -D eslint prettier @typescript-eslint/parser @typescript-eslint/eslint-plugin vite-plugin-checker
+> ```
+
+---
+
+## Scripts
+
+| Script             | Descrição                                                   |
+|--------------------|-------------------------------------------------------------|
+| `npm run dev`      | Dev server com HMR                                          |
+| `npm run build`    | Build de produção (Vite)                                    |
+| `npm run preview`  | Servir build localmente                                     |
+| `npm run lint`     | Lint (ESLint)                                               |
+| `npm run typecheck`| Checagem de tipos (TS)                                      |
+| `npm run test`     | Testes unitários (se configurados)                          |
+
+---
+
+## Estrutura de pastas
+
+> Ajuste conforme sua árvore real. Esta é a organização recomendada.
+
+```
+src/
+  blockly/
+    blocks.ts          # defineBlocksWithJsonArray para todos os blocos
+    toolbox.ts         # toolbox em JSON
+    generator.ts       # workspace -> Model + SQL preview
+    model.ts           # metamodelo TypeScript
+  erd/
+    Erd.tsx            # React Flow + elkjs (model -> nodes/edges)
+  state/
+    useModelStore.ts   # Zustand: modelo, SQL, erros, refs
+  components/
+    BlocklyEditor.tsx  # wrapper do workspace
+    RightPane.tsx      # tabs Modelo/SQL + ações
+  App.tsx
+  main.tsx
+```
+
+---
+
+## Uso
+
+1. Abra a aplicação (`npm run dev`) no navegador.
+2. No painel esquerdo, arraste blocos:
+   - `schema`, `enum`, `domain` (opcional)
+   - `table` → empilhe `column`, constraints e índices
+3. A cada alteração:
+   - Aba **Modelo (JSON)** mostra o metamodelo tipado
+   - Aba **SQL Preview** mostra DDL ordenada
+4. **Exportar**: botão para salvar o workspace em `.pgjson`  
+   **Importar**: carregue um `.pgjson` previamente salvo
+5. Abra o **ERD** para visualizar tabelas e FKs no canvas (React Flow)
+
+Erros e avisos (ex.: FK referencia coluna inexistente) são mostrados no topo do painel direito.
+
+---
+
+## Validação e qualidade
+
+- **Zod** valida o metamodelo antes de gerar SQL
+- **ESLint + Prettier** garantem consistência de código
+- **TypeScript `strict: true`** e `noUncheckedIndexedAccess`
+- Testes unitários recomendados para:
+  - Conversão workspace → modelo
+  - Emissão de DDL (casos de PK/UK/FK/índices)
+
+---
+
+## Roadmap
+
+- Backend (fase 2):  
+  - **Introspecção**: converter um banco real (`pg_catalog`) → modelo  
+  - **Diff/Migrações**: `from` → `to` com ordem por dependências e transações
+  - **Aplicação de DDL** segura (timeouts, logs)
+- **Particionamento** (`PARTITION BY`) e **RLS** (Row Level Security)
+- **Views/Materialized Views** e **Comentários** (`COMMENT ON`)
+- **Casts explícitos** para `ALTER COLUMN TYPE` em migrações
+- **Templates** de projeto e preferências de estilos de modelagem
+
+---
+
+## Referências técnicas
+
+- **PostgreSQL**  
+  - Comandos DDL: `CREATE TABLE`, `CREATE TYPE`, `CREATE DOMAIN`, `CREATE INDEX`, `ALTER TABLE`, `GENERATED AS IDENTITY`  
+    https://www.postgresql.org/docs/current/sql-commands.html  
+  - Catálogos: `pg_namespace`, `pg_class`, `pg_attribute`, `pg_type`, `pg_constraint`, `pg_index`, `pg_enum`, `pg_am`  
+    https://www.postgresql.org/docs/current/catalogs.html  
+  - `UNIQUE ... NULLS NOT DISTINCT` (≥ 15)  
+    https://www.postgresql.org/docs/current/ddl-constraints.html
+- **Blockly**  
+  - Toolbox em JSON, blocos via `defineBlocksWithJsonArray`, serialização `workspaces.save/load`  
+    https://developers.google.com/blockly
+- **React Flow (@xyflow/react)**  
+  https://reactflow.dev/
+- **elkjs**  
+  https://www.eclipse.org/elk/
+
+---
+
+## Licença
+
+[MIT](LICENSE)
