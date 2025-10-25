@@ -1,6 +1,10 @@
 import '@xyflow/react/dist/style.css';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Joyride, { STATUS } from 'react-joyride';
+import type { CallBackProps } from 'react-joyride';
 import { Header } from './components/Header';
+import { GithubLoginModal } from './components/GithubLoginModal';
+import { ProjectsModal } from './components/ProjectsModal';
 import { MetricsFooter } from './components/MetricsFooter';
 import { PreviewPanel } from './components/PreviewPanel';
 import { Sidebar } from './components/Sidebar';
@@ -24,6 +28,7 @@ const createDownload = (content: string, filename: string) => {
 
 export const App = () => {
   const [activeTab, setActiveTab] = useState<PreviewTab>('json');
+  const [runTour, setRunTour] = useState(false);
   const model = useModelStore((state) => state.model);
   const reset = useModelStore((state) => state.reset);
   const setModel = useModelStore((state) => state.setModel);
@@ -37,6 +42,79 @@ export const App = () => {
     () => JSON.stringify(model, null, 2),
     [model],
   );
+
+  // --- Simple GitHub "login" (username only) stored in localStorage ---
+  const [user, setUser] = useState<{ username: string; name?: string; avatarUrl?: string } | null>(() => {
+    try {
+      const raw = localStorage.getItem('pg:user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [showLogin, setShowLogin] = useState(false);
+  const [showProjects, setShowProjects] = useState(false);
+
+  const projectsKeyFor = (username: string) => `pg:projects:${username}`;
+
+  const getProjects = (username: string) => {
+    try {
+      const raw = localStorage.getItem(projectsKeyFor(username));
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveProjectForUser = (username: string, project: { id: string; name: string; modelJson: string; createdAt: string }) => {
+    const list = getProjects(username);
+    list.unshift(project);
+    localStorage.setItem(projectsKeyFor(username), JSON.stringify(list));
+  };
+
+  const deleteProjectForUser = (username: string, id: string) => {
+    const list = getProjects(username).filter((p: any) => p.id !== id);
+    localStorage.setItem(projectsKeyFor(username), JSON.stringify(list));
+  };
+
+  const handleLogin = (u: { username: string; name?: string; avatarUrl?: string }) => {
+    setUser(u);
+    localStorage.setItem('pg:user', JSON.stringify(u));
+    setShowLogin(false);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('pg:user');
+  };
+
+  const handleSaveProject = (name: string) => {
+    if (!user) return;
+    const id = `p_${Date.now()}`;
+    saveProjectForUser(user.username, { id, name, modelJson, createdAt: new Date().toISOString() });
+  };
+
+  const handleLoadProject = (id: string) => {
+    if (!user) return;
+    const list = getProjects(user.username);
+    const p = list.find((x: any) => x.id === id);
+    if (!p) return;
+    try {
+      const parsed = JSON.parse(p.modelJson);
+      setModel(parsed as any);
+      setShowProjects(false);
+    } catch (err) {
+      alert('Não foi possível carregar o projeto (formato inválido).');
+    }
+  };
+
+  const handleDeleteProject = (id: string) => {
+    if (!user) return;
+    deleteProjectForUser(user.username, id);
+  };
+
+  const currentProjects = user ? getProjects(user.username) : [];
 
   const sql = useMemo(
     () =>
@@ -95,6 +173,49 @@ export const App = () => {
     }
   };
 
+  useEffect(() => {
+    const seen = localStorage.getItem('hasSeenTour');
+    if (!seen) {
+      setRunTour(true);
+    }
+  }, []);
+
+  const tourSteps = [
+    {
+      target: '[data-tour="add-schema"]',
+      content: 'Comece criando um schema. Schemas agrupam suas tabelas.',
+      disableBeacon: true,
+    },
+    {
+      target: '[data-tour="add-table"]',
+      content: 'Crie sua primeira tabela aqui.',
+      disableBeacon: true,
+    },
+    {
+      target: '[data-tour="first-table"]',
+      content: 'Esta é sua tabela. Clique para editar o nome.',
+      disableBeacon: true,
+    },
+    {
+      target: '[data-tour="add-column"]',
+      content: 'Para adicionar colunas, clique no ícone + no canto da tabela (no diagrama).',
+      disableBeacon: true,
+    },
+    {
+      target: '[data-tour="first-column"]',
+      content: 'Clique numa coluna para abrir o painel de propriedades à direita. Use o ícone de lixeira para excluir.',
+      disableBeacon: true,
+    },
+  ];
+
+  const handleTourCallback = (data: CallBackProps) => {
+    const { status } = data;
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+      setRunTour(false);
+      localStorage.setItem('hasSeenTour', '1');
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       <Header
@@ -105,8 +226,30 @@ export const App = () => {
         onCopySql={handleCopySql}
         onToggleErd={toggleErd}
         showErd={showErd}
+        onStartTour={() => setRunTour(true)}
+        user={user}
+        onOpenLogin={() => setShowLogin(true)}
+        onOpenProjects={() => setShowProjects(true)}
+        onLogout={handleLogout}
       />
-      <div className="flex flex-1 overflow-hidden bg-slate-100">
+      {/* Joyride guided tour */}
+      <Joyride
+        steps={tourSteps}
+        run={runTour}
+        continuous
+        showSkipButton
+        callback={handleTourCallback}
+        styles={{ options: { zIndex: 10000 } }}
+        locale={{
+          back: 'Anterior',
+          close: 'Fechar',
+          last: 'Finalizar',
+          next: 'Próximo',
+          skip: 'Pular',
+        }}
+      />
+  {/* garantir que a área principal possa conter filhos com overflow: auto */}
+  <div className="flex flex-1 overflow-hidden bg-slate-100 min-h-0">
         <Sidebar />
         <main className="flex flex-1 items-stretch overflow-hidden">
           {showErd ? (
@@ -133,6 +276,17 @@ export const App = () => {
         columns={metrics.columns}
         indexes={metrics.indexes}
         warnings={metrics.warnings}
+      />
+
+      {/* Modals for login and projects */}
+      <GithubLoginModal open={showLogin} onClose={() => setShowLogin(false)} onLogin={handleLogin} />
+      <ProjectsModal
+        open={showProjects}
+        onClose={() => setShowProjects(false)}
+        projects={currentProjects}
+        onSave={(name: string) => handleSaveProject(name)}
+        onLoad={(id: string) => handleLoadProject(id)}
+        onDelete={(id: string) => handleDeleteProject(id)}
       />
     </div>
   );

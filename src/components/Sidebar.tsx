@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { POSTGRES_TYPES } from '../constants/postgresTypes';
-import type { ReferentialAction } from '../types/model';
+// src/components/Sidebar.tsx
+import { useMemo, useRef, useState } from 'react';
 import { createEnumType, useModelStore } from '../store/modelStore';
 
 type SidebarTab = 'tables' | 'types';
@@ -20,212 +19,177 @@ const formInput =
 const formSelect =
   'w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200';
 
-const referentialActions: ReferentialAction[] = [
-  'NO ACTION',
-  'RESTRICT',
-  'CASCADE',
-  'SET NULL',
-  'SET DEFAULT',
-];
-
+/** Sidebar (aside) – lista schemas, tabelas e tipos; ações rápidas */
 export const Sidebar = () => {
+  // Store (ajuste os nomes caso seu store use chaves diferentes)
+  const model = useModelStore((s) => s.model);
+  const selectedSchemaId = useModelStore((s) => s.selectedSchemaId);
+  const selectedTableId = useModelStore((s) => s.selectedTableId);
+  const selectedColumnId = useModelStore((s) => s.selectedColumnId);
+  const setSelectedSchemaId = useModelStore((s) => s.setSelectedSchemaId);
+  const setSelectedTableId = useModelStore((s) => s.setSelectedTableId);
+  const setSelectedColumnId = useModelStore((s) => s.setSelectedColumnId);
+  const addSchema = useModelStore((s) => s.addSchema);
+  const updateSchema = useModelStore((s) => s.updateSchema);
+  const removeSchema = useModelStore((s) => s.removeSchema);
+  const addTable = useModelStore((s) => s.addTable);
+  const updateTable = useModelStore((s) => s.updateTable);
+  const removeTable = useModelStore((s) => s.removeTable);
+  const removeColumn = useModelStore((s) => s.removeColumn);
+  const addType = useModelStore((s) => s.addType);
+  const updateType = useModelStore((s) => s.updateType);
+  const removeType = useModelStore((s) => s.removeType);
+
   const [activeTab, setActiveTab] = useState<SidebarTab>('tables');
 
-  const model = useModelStore((state) => state.model);
-  const selectedSchemaId = useModelStore((state) => state.selectedSchemaId);
-  const selectedTableId = useModelStore((state) => state.selectedTableId);
-  const selectedColumnId = useModelStore((state) => state.selectedColumnId);
-  const setSelectedSchemaId = useModelStore((state) => state.setSelectedSchemaId);
-  const setSelectedTableId = useModelStore((state) => state.setSelectedTableId);
-  const setSelectedColumnId = useModelStore((state) => state.setSelectedColumnId);
-  const addSchema = useModelStore((state) => state.addSchema);
-  const updateSchema = useModelStore((state) => state.updateSchema);
-  const removeSchema = useModelStore((state) => state.removeSchema);
-  const addTable = useModelStore((state) => state.addTable);
-  const updateTable = useModelStore((state) => state.updateTable);
-  const removeTable = useModelStore((state) => state.removeTable);
-  const addColumn = useModelStore((state) => state.addColumn);
-  const updateColumn = useModelStore((state) => state.updateColumn);
-  const removeColumn = useModelStore((state) => state.removeColumn);
-  const addForeignKey = useModelStore((state) => state.addForeignKey);
-  const updateForeignKey = useModelStore((state) => state.updateForeignKey);
-  const removeForeignKey = useModelStore((state) => state.removeForeignKey);
-  const addType = useModelStore((state) => state.addType);
-  const updateType = useModelStore((state) => state.updateType);
-  const removeType = useModelStore((state) => state.removeType);
+  // Criação de tabela inline
+  const [creatingTable, setCreatingTable] = useState(false);
+  const [newTableName, setNewTableName] = useState('');
+  const newTableInputRef = useRef<HTMLInputElement | null>(null);
 
-  const activeSchemaId = useMemo(() => {
-    if (selectedSchemaId) {
-      return selectedSchemaId;
-    }
-    return model.schemas[0]?.id ?? null;
-  }, [model.schemas, selectedSchemaId]);
+  // Edição inline de schema/tabela
+  const [editingSchemaId, setEditingSchemaId] = useState<string | null>(null);
+  const editingSchemaRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [editingTableId, setEditingTableId] = useState<string | null>(null);
+  const editingTableRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  useEffect(() => {
-    if (!selectedSchemaId && model.schemas[0]) {
-      setSelectedSchemaId(model.schemas[0].id);
-    }
-  }, [model.schemas, selectedSchemaId, setSelectedSchemaId]);
+  // Derivados
+  const tablesInSchema = useMemo(() => {
+    if (!selectedSchemaId) return [];
+    return (model?.tables ?? []).filter((t: any) => t.schemaId === selectedSchemaId);
+  }, [model, selectedSchemaId]);
 
-  const tablesInSchema = useMemo(
-    () =>
-      model.tables.filter((table) => table.schemaId === activeSchemaId),
-    [model.tables, activeSchemaId],
-  );
+  const schemaOptions = useMemo(() => model?.schemas ?? [], [model]);
 
-  useEffect(() => {
-    if (selectedTableId) {
-      const exists = model.tables.some((table) => table.id === selectedTableId);
-      if (!exists) {
-        setSelectedTableId(tablesInSchema[0]?.id ?? null);
-      }
-    } else if (tablesInSchema[0]) {
-      setSelectedTableId(tablesInSchema[0].id);
-    }
-  }, [model.tables, selectedTableId, setSelectedTableId, tablesInSchema]);
-
-  const selectedTable = useMemo(
-    () => model.tables.find((table) => table.id === selectedTableId) ?? null,
-    [model.tables, selectedTableId],
-  );
-
-  const schemaOptions = useMemo(
-    () =>
-      model.schemas.map((schema) => ({ id: schema.id, name: schema.name })),
-    [model.schemas],
-  );
-
+  // Ações: Schemas
   const handleAddSchema = () => {
-    const name = prompt('Nome do schema:', 'novo_schema');
-    if (!name) {
-      return;
-    }
-    addSchema(name);
+    const name = prompt('Nome do schema:', 'public');
+    if (!name?.trim()) return;
+    addSchema(name.trim());
   };
 
+  // Ações: Tabelas
   const handleAddTable = () => {
-    if (!activeSchemaId) {
-      return;
-    }
-    const name = prompt('Nome da tabela:', 'tabela');
-    addTable(activeSchemaId, name ?? 'tabela');
+    if (!selectedSchemaId) return;
+    setCreatingTable(true);
+    setTimeout(() => newTableInputRef.current?.focus(), 50);
   };
 
-  const handleAddColumn = () => {
-    if (!selectedTable) {
-      return;
-    }
-    addColumn(selectedTable.id, `coluna_${selectedTable.columns.length + 1}`);
+  const confirmAddTable = () => {
+    if (!selectedSchemaId) return;
+    const name = (newTableName || '').trim();
+    const tableName = name || 'sem_nome';
+    addTable(selectedSchemaId, tableName);
+    setNewTableName('');
+    setCreatingTable(false);
   };
 
-  const handleAddForeignKey = () => {
-    if (!selectedTable) {
-      return;
-    }
-    if (selectedTable.columns.length === 0) {
-      alert('Crie ao menos uma coluna antes de adicionar uma FK.');
-      return;
-    }
-
-    const availableTables = model.tables.filter(
-      (table) => table.id !== selectedTable.id && table.columns.length > 0,
-    );
-    if (availableTables.length === 0) {
-      alert('Não há tabelas alvo com colunas disponíveis para criar FK.');
-      return;
-    }
-
-    const targetTable = availableTables[0];
-    const targetColumn = targetTable.columns[0];
-
-    addForeignKey(selectedTable.id, {
-      name: `fk_${selectedTable.name}_${targetTable.name}`,
-      fromColumnId: selectedTable.columns[0].id,
-      toTableId: targetTable.id,
-      toColumnId: targetColumn.id,
-      onDelete: 'NO ACTION',
-      onUpdate: 'NO ACTION',
-    });
+  const cancelAddTable = () => {
+    setNewTableName('');
+    setCreatingTable(false);
   };
 
+  // Ações: Tipos (ENUM)
   const handleAddEnum = () => {
-    if (!activeSchemaId) {
-      return;
-    }
+  if (!selectedSchemaId) return;
     const name = prompt('Nome do tipo ENUM:', 'status_enum');
-    if (!name) {
-      return;
-    }
-    const valuesInput = prompt(
-      'Valores (separados por vírgula):',
-      'ativo,inativo',
-    );
-    if (!valuesInput) {
-      return;
-    }
+    if (!name?.trim()) return;
+    const valuesInput = prompt('Valores (separados por vírgula):', 'ativo,inativo');
+    if (!valuesInput) return;
     const values = valuesInput
       .split(',')
-      .map((value) => value.trim())
+      .map((v) => v.trim())
       .filter(Boolean);
     if (values.length === 0) {
       alert('Adicione ao menos um valor.');
       return;
     }
-    addType(createEnumType(activeSchemaId, name, values));
+    addType(createEnumType(selectedSchemaId, name.trim(), values));
   };
 
   return (
-    <aside className="flex w-80 flex-col border-r border-slate-200 bg-slate-50">
+    // adicionar `min-h-0` para permitir que o filho com `overflow-y-auto` role corretamente em containers flex
+    <aside className="flex w-80 flex-col border-r border-slate-200 bg-slate-50 min-h-0">
+      {/* Tabs (Tabelas / Tipos) */}
       <div className="flex gap-2 p-3">
         <button
           type="button"
           className={`${segmentedButton} ${
-            activeTab === 'tables'
-              ? 'bg-white text-indigo-600 shadow'
-              : 'bg-slate-100 text-slate-600'
+            activeTab === 'tables' ? 'bg-white text-indigo-600 shadow' : 'bg-slate-100 text-slate-600'
           }`}
           onClick={() => setActiveTab('tables')}
+          title="Gerenciar tabelas"
         >
-          Tabela
+          <i className="bi bi-table mr-2" aria-hidden="true" />
+          Tabelas
         </button>
         <button
           type="button"
           className={`${segmentedButton} ${
-            activeTab === 'types'
-              ? 'bg-white text-indigo-600 shadow'
-              : 'bg-slate-100 text-slate-600'
+            activeTab === 'types' ? 'bg-white text-indigo-600 shadow' : 'bg-slate-100 text-slate-600'
           }`}
           onClick={() => setActiveTab('types')}
+          title="Gerenciar tipos"
         >
+          <i className="bi bi-tags mr-2" aria-hidden="true" />
           Tipos
         </button>
       </div>
 
+      {/* Passos rápidos (tour/onboarding leve) */}
+      <div className="px-4 pb-3">
+        <div className="rounded-md border border-indigo-100 bg-indigo-50/60 p-3 text-sm text-slate-800">
+          <div className="flex items-start gap-3">
+            <i className="bi bi-info-circle-fill text-indigo-600 mt-1" aria-hidden="true" />
+            <div>
+              <p className="font-semibold text-indigo-700">Passos rápidos</p>
+              <ol className="mt-2 ml-4 list-decimal space-y-1 text-xs text-slate-700">
+                <li>
+                  <strong>Escolha ou crie um schema</strong> — é o escopo onde suas tabelas ficam.
+                </li>
+                <li>
+                  <strong>Clique em + (Tabelas)</strong> para criar uma nova tabela.
+                </li>
+                <li>
+                  <strong>Selecione a tabela</strong> e clique numa coluna para editar propriedades no painel da direita.
+                </li>
+                <li>
+                  <strong>Crie relacionamentos</strong> usando Foreign Keys no painel direito.
+                </li>
+                <li>
+                  <strong>Excluir:</strong> use o ícone de lixeira ao lado da tabela ou da coluna.
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Conteúdo principal */}
       <div className="flex-1 overflow-y-auto px-4 pb-6">
         {activeTab === 'tables' ? (
           <div className="space-y-6">
+            {/* Schemas */}
             <section>
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Schemas
-                </h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Schemas</h2>
                 <button
                   type="button"
                   className={controlButton}
                   onClick={handleAddSchema}
                   title="Adicionar schema"
+                  data-tour="add-schema"
                 >
-                  +
+                  <i className="bi bi-plus-lg" aria-hidden="true" />
                 </button>
               </div>
+
               <div className="space-y-3">
-                {model.schemas.map((schema) => (
+                {(model?.schemas ?? []).map((schema: any) => (
                   <div
                     key={schema.id}
                     className={`rounded-md border ${
-                      schema.id === activeSchemaId
-                        ? 'border-indigo-400 bg-white shadow-sm'
-                        : 'border-transparent bg-slate-100'
+                      schema.id === selectedSchemaId ? 'border-indigo-400 bg-white shadow-sm' : 'border-transparent bg-slate-100'
                     } p-2`}
                   >
                     <div className="flex items-center justify-between">
@@ -240,473 +204,306 @@ export const Sidebar = () => {
                         type="button"
                         className={controlButton}
                         onClick={() => removeSchema(schema.id)}
-                        disabled={model.schemas.length <= 1}
+                        disabled={(model?.schemas?.length ?? 0) <= 1}
                         title="Remover schema"
                       >
-                        ×
+                        <i className="bi bi-trash" aria-hidden="true" />
                       </button>
                     </div>
+
                     <input
                       className={`${formInput} mt-2`}
-                      value={schema.name}
-                      onChange={(event) =>
-                        updateSchema(schema.id, {
-                          name: event.target.value,
-                        })
-                      }
+                      defaultValue={schema.name}
+                      ref={(el) => {
+                        editingSchemaRefs.current[schema.id] = el;
+                        if (editingSchemaId === schema.id && el) {
+                          setTimeout(() => {
+                            try {
+                              el.focus();
+                              el.select();
+                            } catch {
+                              /* noop */
+                            }
+                          }, 0);
+                        }
+                      }}
+                      onFocus={() => setEditingSchemaId(schema.id)}
+                      onBlur={(e) => {
+                        if (editingSchemaId === schema.id) {
+                          const newName = (e.target as HTMLInputElement).value.trim() || schema.name;
+                          updateSchema(schema.id, { name: newName });
+                          setEditingSchemaId(null);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && editingSchemaId === schema.id) {
+                          const val = (e.target as HTMLInputElement).value.trim() || schema.name;
+                          updateSchema(schema.id, { name: val });
+                          setEditingSchemaId(null);
+                          (e.target as HTMLInputElement).blur();
+                        }
+                        if (e.key === 'Escape' && editingSchemaId === schema.id) {
+                          setEditingSchemaId(null);
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
                     />
+                    <p className="mt-1 text-xs text-slate-500">
+                      Nome do schema (ex: <code>public</code>). Escolha onde suas tabelas serão criadas.
+                    </p>
                   </div>
                 ))}
               </div>
             </section>
 
+            {/* Tabelas */}
             <section>
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Tabelas
-                </h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tabelas</h2>
                 <button
                   type="button"
                   className={controlButton}
                   onClick={handleAddTable}
                   title="Adicionar tabela"
-                  disabled={!activeSchemaId}
+                  disabled={!selectedSchemaId}
+                  data-tour="add-table"
                 >
-                  +
+                  <i className="bi bi-plus-lg" aria-hidden="true" />
                 </button>
               </div>
+
+              {creatingTable && (
+                <div className="mb-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={newTableInputRef}
+                      className={`${formInput} w-44`}
+                      value={newTableName}
+                      placeholder="nome_da_tabela"
+                      onChange={(e) => setNewTableName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') confirmAddTable();
+                        if (e.key === 'Escape') cancelAddTable();
+                      }}
+                    />
+                    <button type="button" className={smallButton} onClick={confirmAddTable} title="Confirmar">
+                      <i className="bi bi-check-lg mr-1" aria-hidden="true" />
+                      Confirmar
+                    </button>
+                    <button type="button" className={controlButton} onClick={cancelAddTable} title="Cancelar">
+                      <i className="bi bi-x-lg" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Dica: pressione <kbd className="rounded border px-1 py-0.5">Enter</kbd> para confirmar ou{' '}
+                    <kbd className="rounded border px-1 py-0.5">Esc</kbd> para cancelar.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 {tablesInSchema.length === 0 && (
-                  <p className="text-sm text-slate-500">
-                    Nenhuma tabela neste schema.
-                  </p>
+                  <div className="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
+                    <p className="font-semibold text-slate-700">Nenhuma tabela ainda</p>
+                    <p className="mt-1 text-xs">
+                      Clique no botão <strong>+</strong> acima para criar sua primeira tabela. Após criar, selecione-a para editar colunas e
+                      relacionamentos.
+                    </p>
+                  </div>
                 )}
-                {tablesInSchema.map((table) => (
-                  <button
-                    key={table.id}
-                    type="button"
-                    className={`w-full rounded-md px-3 py-2 text-left text-sm font-medium transition ${
-                      table.id === selectedTableId
-                        ? 'bg-white text-indigo-600 shadow-sm'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                    onClick={() => setSelectedTableId(table.id)}
-                  >
-                    {table.name}
-                  </button>
+
+                {tablesInSchema.map((table: any, idx: number) => (
+                  <div key={table.id} className="space-y-1" data-tour={idx === 0 ? 'first-table' : undefined}>
+                    <div
+                      className={`w-full rounded-md px-3 py-2 text-sm font-medium transition flex items-center justify-between ${
+                        table.id === selectedTableId ? 'bg-white text-indigo-600 shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <div className="flex-1">
+                        {editingTableId === table.id ? (
+                          <div className="flex items-center gap-2">
+                            <i className="bi bi-table text-slate-400" aria-hidden="true" />
+                            <input
+                              data-editing-table={table.id}
+                              className={`${formInput} w-full max-w-[180px]`}
+                              defaultValue={table.name || 'sem_nome'}
+                              ref={(el) => {
+                                editingTableRefs.current[table.id] = el;
+                                if (editingTableId === table.id && el) {
+                                  setTimeout(() => {
+                                    try {
+                                      el.focus();
+                                      el.select();
+                                    } catch {
+                                      /* noop */
+                                    }
+                                  }, 0);
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const newName = (e.target as HTMLInputElement).value.trim() || table.name;
+                                updateTable(table.id, { name: newName });
+                                setEditingTableId(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  const newName = (e.target as HTMLInputElement).value.trim() || table.name;
+                                  updateTable(table.id, { name: newName });
+                                  setEditingTableId(null);
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                                if (e.key === 'Escape') {
+                                  setEditingTableId(null);
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-left inline-flex items-center gap-2"
+                            onClick={() => {
+                              setEditingTableId(table.id);
+                              setSelectedTableId(table.id);
+                              const tryFocus = () => {
+                                try {
+                                  const el = editingTableRefs.current[table.id];
+                                  el?.focus();
+                                  el?.select();
+                                } catch {
+                                  /* noop */
+                                }
+                              };
+                              setTimeout(tryFocus, 50);
+                              requestAnimationFrame(tryFocus);
+                              setTimeout(tryFocus, 200);
+                            }}
+                          >
+                            <i className="bi bi-table mr-2" aria-hidden="true" />
+                            {table.name || 'sem_nome'}
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className={controlButton}
+                          title="Remover tabela"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Remover tabela "${table.name}"?`)) {
+                              removeTable(table.id);
+                            }
+                          }}
+                        >
+                          <i className="bi bi-trash" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Lista de colunas */}
+                    <div className="pl-8 mt-1 w-full space-y-1">
+                      {(table.columns ?? []).map((column: any, cidx: number) => (
+                        <div
+                          key={column.id}
+                          className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${
+                            column.id === selectedColumnId ? 'bg-white text-indigo-600' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            data-tour={idx === 0 && cidx === 0 ? 'first-column' : undefined}
+                            className="text-left inline-flex items-center gap-2 flex-1 truncate text-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTableId(table.id);
+                              setSelectedColumnId(column.id);
+                            }}
+                          >
+                            <i className="bi bi-list-ul text-slate-400" aria-hidden="true" />
+                            <span className="truncate">{column.name || 'sem_nome'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={controlButton}
+                            title="Remover coluna"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Remover coluna "${column.name}"?`)) {
+                                removeColumn(table.id, column.id);
+                              }
+                            }}
+                          >
+                            <i className="bi bi-trash" aria-hidden="true" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </section>
 
-            {selectedTable && (
-              <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-700">
-                    {selectedTable.name}
-                  </h3>
-                  <button
-                    type="button"
-                    className={smallButton}
-                    onClick={() => removeTable(selectedTable.id)}
-                  >
-                    <i className="bi bi-trash3 mr-1" aria-hidden="true" />
-                    Remover
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Nome
-                    </label>
-                    <input
-                      className={formInput}
-                      value={selectedTable.name}
-                      onChange={(event) =>
-                        updateTable(selectedTable.id, {
-                          name: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Comentário
-                    </label>
-                    <textarea
-                      className={`${formInput} min-h-[60px]`}
-                      value={selectedTable.comment ?? ''}
-                      onChange={(event) =>
-                        updateTable(selectedTable.id, {
-                          comment: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Colunas
-                    </h4>
-                    <button
-                      type="button"
-                      className={smallButton}
-                      onClick={handleAddColumn}
-                    >
-                      <i className="bi bi-plus-lg mr-1" aria-hidden="true" />
-                      Adicionar coluna
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    {selectedTable.columns.map((column) => {
-                      const isActiveColumn = selectedColumnId === column.id;
-                      return (
-                        <div
-                          key={column.id}
-                          className={`rounded border p-3 transition ${
-                            isActiveColumn
-                              ? 'border-indigo-400 bg-indigo-50/70'
-                              : 'border-slate-200 bg-white'
-                          }`}
-                          onClick={() => {
-                            setSelectedTableId(selectedTable.id);
-                            setSelectedColumnId(column.id);
-                          }}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <input
-                              className={formInput}
-                              value={column.name}
-                              onChange={(event) =>
-                                updateColumn(selectedTable.id, column.id, {
-                                  name: event.target.value,
-                                })
-                              }
-                            />
-                            <button
-                              type="button"
-                              className={controlButton}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                removeColumn(selectedTable.id, column.id);
-                              }}
-                              title="Remover coluna"
-                            >
-                              <i className="bi bi-x-lg" aria-hidden="true" />
-                            </button>
-                          </div>
-                          <div className="mt-2 grid grid-cols-2 gap-2">
-                            <select
-                              className={formSelect}
-                              value={column.type}
-                              onChange={(event) =>
-                                updateColumn(selectedTable.id, column.id, {
-                                  type: event.target.value,
-                                })
-                              }
-                            >
-                              <option value="">Selecione um tipo</option>
-                              {POSTGRES_TYPES.map((type) => (
-                                <option key={type} value={type}>
-                                  {type}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              className={formInput}
-                              placeholder="DEFAULT"
-                              value={column.defaultValue ?? ''}
-                              onChange={(event) =>
-                                updateColumn(selectedTable.id, column.id, {
-                                  defaultValue:
-                                    event.target.value.length > 0
-                                      ? event.target.value
-                                      : undefined,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">
-                            <label className="inline-flex items-center gap-1">
-                              <input
-                                type="checkbox"
-                                checked={column.nullable}
-                                onChange={(event) =>
-                                  updateColumn(selectedTable.id, column.id, {
-                                    nullable: event.target.checked,
-                                  })
-                                }
-                              />
-                              <span>Nullable</span>
-                            </label>
-                            <label className="inline-flex items-center gap-1">
-                              <input
-                                type="checkbox"
-                                checked={column.isPrimaryKey}
-                                onChange={(event) =>
-                                  updateColumn(selectedTable.id, column.id, {
-                                    isPrimaryKey: event.target.checked,
-                                    nullable: event.target.checked
-                                      ? false
-                                      : column.nullable,
-                                  })
-                                }
-                              />
-                              <span>PK</span>
-                            </label>
-                            <label className="inline-flex items-center gap-1">
-                              <input
-                                type="checkbox"
-                                checked={column.isUnique}
-                                onChange={(event) =>
-                                  updateColumn(selectedTable.id, column.id, {
-                                    isUnique: event.target.checked,
-                                  })
-                                }
-                              />
-                              <span>Unique</span>
-                            </label>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Foreign keys
-                    </h4>
-                    <button
-                      type="button"
-                      className={smallButton}
-                      onClick={handleAddForeignKey}
-                    >
-                      <i className="bi bi-plus-lg mr-1" aria-hidden="true" />
-                      Nova FK
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    {selectedTable.foreignKeys.length === 0 && (
-                      <p className="text-sm text-slate-500">
-                        Nenhuma foreign key definida.
-                      </p>
-                    )}
-                    {selectedTable.foreignKeys.map((fk) => {
-                      const targetTable = model.tables.find(
-                        (table) => table.id === fk.toTableId,
-                      );
-                      const targetColumns = targetTable?.columns ?? [];
-
-                      return (
-                        <div
-                          key={fk.id}
-                          className="rounded border border-slate-200 p-3"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <input
-                              className={formInput}
-                              value={fk.name}
-                              onChange={(event) =>
-                                updateForeignKey(selectedTable.id, fk.id, {
-                                  name: event.target.value,
-                                })
-                              }
-                            />
-                            <button
-                              type="button"
-                              className={controlButton}
-                              onClick={() =>
-                                removeForeignKey(selectedTable.id, fk.id)
-                              }
-                              title="Remover FK"
-                            >
-                              ×
-                            </button>
-                          </div>
-                          <div className="mt-2 grid grid-cols-2 gap-2">
-                            <select
-                              className={formSelect}
-                              value={fk.fromColumnId}
-                              onChange={(event) =>
-                                updateForeignKey(selectedTable.id, fk.id, {
-                                  fromColumnId: event.target.value,
-                                })
-                              }
-                            >
-                              {selectedTable.columns.map((column) => (
-                                <option key={column.id} value={column.id}>
-                                  {column.name}
-                                </option>
-                              ))}
-                            </select>
-                            <select
-                              className={formSelect}
-                              value={fk.toTableId}
-                              onChange={(event) => {
-                                const newTargetId = event.target.value;
-                                const newTargetTable = model.tables.find(
-                                  (table) => table.id === newTargetId,
-                                );
-                                updateForeignKey(selectedTable.id, fk.id, {
-                                  toTableId: newTargetId,
-                                  toColumnId:
-                                    newTargetTable?.columns[0]?.id ??
-                                    fk.toColumnId,
-                                });
-                              }}
-                            >
-                              {model.tables
-                                .filter((table) => table.id !== selectedTable.id)
-                                .map((table) => (
-                                  <option key={table.id} value={table.id}>
-                                    {table.name}
-                                  </option>
-                                ))}
-                            </select>
-                          </div>
-                          <div className="mt-2 grid grid-cols-2 gap-2">
-                            <select
-                              className={formSelect}
-                              value={fk.toColumnId}
-                              onChange={(event) =>
-                                updateForeignKey(selectedTable.id, fk.id, {
-                                  toColumnId: event.target.value,
-                                })
-                              }
-                            >
-                              {targetColumns.map((column) => (
-                                <option key={column.id} value={column.id}>
-                                  {column.name}
-                                </option>
-                              ))}
-                            </select>
-                            <select
-                              className={formSelect}
-                              value={fk.onDelete ?? 'NO ACTION'}
-                              onChange={(event) =>
-                                updateForeignKey(selectedTable.id, fk.id, {
-                                  onDelete: event.target
-                                    .value as ReferentialAction,
-                                })
-                              }
-                            >
-                              {referentialActions.map((action) => (
-                                <option key={action} value={action}>
-                                  ON DELETE {action}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="mt-2">
-                            <select
-                              className={formSelect}
-                              value={fk.onUpdate ?? 'NO ACTION'}
-                              onChange={(event) =>
-                                updateForeignKey(selectedTable.id, fk.id, {
-                                  onUpdate: event.target
-                                    .value as ReferentialAction,
-                                })
-                              }
-                            >
-                              {referentialActions.map((action) => (
-                                <option key={action} value={action}>
-                                  ON UPDATE {action}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </section>
-            )}
+            {/* A edição detalhada da tabela/coluna vive no painel direito (properties panel) */}
           </div>
         ) : (
+          // Tab "Tipos"
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Tipos personalizados
-              </h2>
-              <button
-                type="button"
-                className={smallButton}
-                onClick={handleAddEnum}
-                disabled={!activeSchemaId}
-              >
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tipos personalizados</h2>
+              <button type="button" className={smallButton} onClick={handleAddEnum} disabled={!selectedSchemaId}>
                 Novo ENUM
               </button>
             </div>
-            {model.types.length === 0 && (
-              <p className="text-sm text-slate-500">
-                Nenhum tipo cadastrado. Adicione tipos ENUM para reutilizar em
-                colunas.
-              </p>
+
+            {(model?.types?.length ?? 0) === 0 && (
+              <p className="text-sm text-slate-500">Nenhum tipo cadastrado. Adicione tipos ENUM para reutilizar em colunas.</p>
             )}
+
             <div className="space-y-3">
-              {model.types.map((customType) => (
-                <div
-                  key={customType.id}
-                  className="rounded border border-slate-200 bg-white p-4 shadow-sm"
-                >
+              {(model?.types ?? []).map((customType: any) => (
+                <div key={customType.id} className="rounded border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-700">
-                      {customType.name}
-                    </h3>
-                    <button
-                      type="button"
-                      className={smallButton}
-                      onClick={() => removeType(customType.id)}
-                    >
+                    <h3 className="text-sm font-semibold text-slate-700">{customType.name}</h3>
+                    <button type="button" className={smallButton} onClick={() => removeType(customType.id)}>
                       Remover
                     </button>
                   </div>
+
                   <div className="mt-3 space-y-3 text-sm">
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Nome
-                      </label>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Nome</label>
                       <input
                         className={formInput}
                         value={customType.name}
-                        onChange={(event) =>
-                          updateType(customType.id, {
-                            name: event.target.value,
-                          })
-                        }
+                        onChange={(event) => updateType(customType.id, { name: event.target.value })}
                       />
                     </div>
+
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Schema
-                      </label>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Schema</label>
                       <select
                         className={formSelect}
                         value={customType.schemaId}
-                        onChange={(event) =>
-                          updateType(customType.id, {
-                            schemaId: event.target.value,
-                          })
-                        }
+                        onChange={(event) => updateType(customType.id, { schemaId: event.target.value })}
                       >
-                        {schemaOptions.map((schema) => (
+                        {schemaOptions.map((schema: any) => (
                           <option key={schema.id} value={schema.id}>
                             {schema.name}
                           </option>
                         ))}
                       </select>
                     </div>
+
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Valores (um por linha)
                       </label>
                       <textarea
                         className={`${formInput} min-h-[80px]`}
-                        value={customType.values.join('\n')}
+                        value={(customType.values ?? []).join('\n')}
                         onChange={(event) =>
                           updateType(customType.id, {
                             values: event.target.value

@@ -18,6 +18,21 @@ export type ForeignKey = {
   onDelete?: ReferentialAction;
   onUpdate?: ReferentialAction;
   comment?: string;
+  // optional stored cardinality overrides
+  startCardinality?:
+    | 'one'
+    | 'many'
+    | 'one_and_only_one'
+    | 'zero_or_one'
+    | 'one_or_many'
+    | 'zero_or_many';
+  endCardinality?:
+    | 'one'
+    | 'many'
+    | 'one_and_only_one'
+    | 'zero_or_one'
+    | 'one_or_many'
+    | 'zero_or_many';
 };
 
 export type ReferentialAction =

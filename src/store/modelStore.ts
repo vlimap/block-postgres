@@ -77,7 +77,7 @@ type ModelState = {
   addSchema: (name: string) => string;
   updateSchema: (id: string, patch: Partial<Schema>) => void;
   removeSchema: (id: string) => void;
-  addTable: (schemaId: string, name?: string) => string;
+  addTable: (schemaId: string, name?: string, position?: TablePosition) => string;
   updateTable: (id: string, patch: Partial<Omit<Table, 'id' | 'columns' | 'foreignKeys'>>) => void;
   removeTable: (id: string) => void;
   addColumn: (tableId: string, name?: string) => string;
@@ -222,7 +222,7 @@ export const useModelStore = create<ModelState>()(
         });
       },
 
-      addTable: (schemaId, name = 'tabela') => {
+      addTable: (schemaId, name = 'tabela', position) => {
         const { model } = get();
         if (!model.schemas.some((schema) => schema.id === schemaId)) {
           throw new Error('Schema inexistente');
@@ -238,6 +238,9 @@ export const useModelStore = create<ModelState>()(
         );
 
         const newTable = createDefaultTable(schemaId, tableName);
+        if (position) {
+          newTable.position = position;
+        }
 
         set((state) => ({
           model: {
