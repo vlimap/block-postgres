@@ -1,4 +1,4 @@
-# Blocos
+# PG Modeler
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/I2I5GOM2U)
 
