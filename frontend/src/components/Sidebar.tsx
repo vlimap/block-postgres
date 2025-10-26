@@ -137,6 +137,7 @@ export const Sidebar = () => {
       </div>
 
       {/* Passos rápidos (tour/onboarding leve) */}
+      
       <div className="px-4 pb-3">
         <div className="rounded-md border border-brand-100 bg-brand-50/60 p-3 text-sm text-slate-800">
           <div className="flex items-start gap-3">
