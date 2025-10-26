@@ -35,14 +35,20 @@ const baseOptions = {
   },
 };
 
-if (shouldUseSsl) {
-  baseOptions.dialectOptions = {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-    },
-  };
-}
+const ipv4Lookup = (hostname, options, callback) =>
+  dns.lookup(hostname, { ...options, family: 4, all: false }, callback);
+
+baseOptions.dialectOptions = {
+  ...(shouldUseSsl
+    ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      }
+    : {}),
+  lookup: ipv4Lookup,
+};
 
 const resolveIPv4Host = (hostname) => {
   try {

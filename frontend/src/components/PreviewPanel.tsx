@@ -82,7 +82,7 @@ export const PreviewPanel = ({
   };
 
   return (
-    <aside className="flex w-[28rem] flex-col border-l border-slate-200 bg-white">
+    <aside className="flex w-full flex-col border-t border-slate-200 bg-white min-h-0 lg:w-[28rem] lg:flex-shrink-0 lg:border-t-0 lg:border-l">
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <div className="flex gap-2">
             <button
