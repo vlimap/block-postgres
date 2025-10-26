@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import type { ModelIssue } from '../lib/warnings';
 
 type HeaderProps = {
@@ -25,17 +25,7 @@ const badgeBase =
   'inline-flex items-center rounded-full px-2 text-xs font-semibold';
 
 const GITHUB_REPO_URL = 'https://github.com/vlimap/block-postgres';
-const KOFI_WIDGET_SCRIPT = 'https://storage.ko-fi.com/cdn/widget/Widget_2.js';
-const KOFI_CONTAINER_ID = 'ko-fi-widget-inline';
-
-declare global {
-  interface Window {
-    kofiwidget2?: {
-      init(label: string, color: string, code: string): void;
-      draw(target?: string): void;
-    };
-  }
-}
+const KO_FI_URL = 'https://ko-fi.com/I2I5GOM2U';
 
 export const Header = ({
   issues,
@@ -53,8 +43,6 @@ export const Header = ({
   onOpenAccount,
 }: HeaderProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [widgetFailed, setWidgetFailed] = useState(false);
-  const [widgetRequested, setWidgetRequested] = useState(false);
 
   const handleClickImport = () => {
     fileInputRef.current?.click();
@@ -77,70 +65,6 @@ export const Header = ({
   const errorCount = issues.filter((issue) => issue.level === 'error').length;
   const warningCount = issues.filter((issue) => issue.level === 'warning').length;
   const hasStatusBadges = errorCount > 0 || warningCount > 0;
-
-  useEffect(() => {
-    // No-op: widget load happens on demand via loadKoFiWidget() to ensure exact script order
-  }, [widgetRequested]);
-
-  // when user requests the widget, inject the exact scripts
-  useEffect(() => {
-    if (widgetRequested) loadKoFiWidget();
-  }, [widgetRequested]);
-
-  const loadKoFiWidget = () => {
-    if (!widgetRequested) return;
-    setWidgetFailed(false);
-
-    // If widget already mounted, do nothing
-    const container = document.getElementById(KOFI_CONTAINER_ID);
-    if (container && container.querySelector('iframe')) {
-      return;
-    }
-
-    // If the loader script already exists, attach onload to inject the inline script; otherwise create it
-    const existingScript = document.getElementById('ko-fi-widget-loader') as HTMLScriptElement | null;
-    const injectInline = () => {
-      // create the exact inline script the user requested
-      const inline = document.createElement('script');
-      inline.type = 'text/javascript';
-      inline.text = "kofiwidget2.init('Doe um café', '#1b4070', 'I2I5GOM2U');kofiwidget2.draw();";
-      document.body.appendChild(inline);
-
-      // health-check: if no iframe after 2s, mark failed
-      setTimeout(() => {
-        const c = document.getElementById(KOFI_CONTAINER_ID);
-        if (!c) return;
-        if (!c.querySelector('iframe')) setWidgetFailed(true);
-      }, 2000);
-    };
-
-    if (existingScript) {
-      // if script already loaded, inject inline immediately or on load
-      if ((existingScript as any).getAttribute('data-loaded') === '1' || (window as any).kofiwidget2) {
-        injectInline();
-      } else {
-        existingScript.addEventListener('load', () => {
-          (existingScript as any).setAttribute('data-loaded', '1');
-          injectInline();
-        }, { once: true });
-      }
-      return;
-    }
-
-    const s = document.createElement('script');
-    s.id = 'ko-fi-widget-loader';
-    s.type = 'text/javascript';
-    s.src = KOFI_WIDGET_SCRIPT;
-    s.async = true;
-    s.onload = () => {
-      (s as any).setAttribute('data-loaded', '1');
-      injectInline();
-    };
-    s.onerror = () => {
-      setWidgetFailed(true);
-    };
-    document.body.appendChild(s);
-  };
 
   return (
     <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
@@ -233,39 +157,16 @@ export const Header = ({
           GitHub
         </a>
 
-        {/* Ko-fi: show simple link by default; user can request to load the embedded widget */}
-        {!widgetRequested && (
-          <div className="flex items-center gap-2">
-            <a
-              href="https://ko-fi.com/I2I5GOM2U"
-              target="_blank"
-              rel="noreferrer"
-              className={buttonBase}
-              title="Doar no Ko‑fi"
-            >
-              <i className="bi bi-cup-straw" aria-hidden="true" />
-              Doe um café
-            </a>
-            
-          </div>
-        )}
-
-        {/* container for the embedded widget (loaded on demand) */}
-        {widgetRequested && !widgetFailed && (
-          <div id={KOFI_CONTAINER_ID} className="flex items-center" style={{ minWidth: 180 }} />
-        )}
-        {widgetFailed && (
-          <a
-            href="https://ko-fi.com/I2I5GOM2U"
-            target="_blank"
-            rel="noreferrer"
-            className={buttonBase}
-            title="Doar no Ko‑fi"
-          >
-            <i className="bi bi-cup-straw" aria-hidden="true" />
-            Ko‑fi
-          </a>
-        )}
+        <a
+          href={KO_FI_URL}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonBase}
+          title="Doe um café no Ko-fi"
+        >
+          <i className="bi bi-cup-straw" aria-hidden="true" />
+          Doe um café
+        </a>
         {hasStatusBadges && (
           <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
             {errorCount > 0 && (

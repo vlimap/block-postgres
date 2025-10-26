@@ -158,7 +158,7 @@ app.post('/api/me/marketing-consent', requireAuth, async (req, res, next) => {
 const start = async () => {
   try {
     await sequelize.authenticate();
-    console.log('[db] conectado em', sequelize.getDatabaseName(), 'host:', sequelize.config.host);
+    console.log('[db] conexão estabelecida com sucesso');
     await sequelize.sync({ alter: true });
     app.listen(PORT, () => {
       console.log(`API rodando na porta ${PORT}`);
