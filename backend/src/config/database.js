@@ -1,4 +1,5 @@
 const { Sequelize } = require('sequelize');
+const dns = require('dns');
 
 const {
   DATABASE_URL,
@@ -43,8 +44,29 @@ if (shouldUseSsl) {
   };
 }
 
+const resolveIPv4Host = (hostname) => {
+  try {
+    const { address } = dns.lookupSync(hostname, { family: 4 });
+    return address || null;
+  } catch (error) {
+    return null;
+  }
+};
+
 if (DATABASE_URL) {
-  sequelize = new Sequelize(DATABASE_URL, baseOptions);
+  let connectionUri = DATABASE_URL;
+  try {
+    const parsed = new URL(DATABASE_URL);
+    const ipv4Host = resolveIPv4Host(parsed.hostname);
+    if (ipv4Host) {
+      parsed.hostname = ipv4Host;
+      parsed.host = ipv4Host + (parsed.port ? `:${parsed.port}` : '');
+      connectionUri = parsed.toString();
+    }
+  } catch (error) {
+    // ignore malformed URLs; fallback to original connection string
+  }
+  sequelize = new Sequelize(connectionUri, baseOptions);
 } else {
   sequelize = new Sequelize(PGDATABASE, PGUSER, PGPASSWORD, {
     host: PGHOST,
