@@ -287,6 +287,10 @@ export const App = () => {
     return () => mediaQuery.removeEventListener('change', update);
   }, []);
 
+  if (isMobile) {
+    return <DesktopOnlyNotice force />;
+  }
+
   const tourSteps = [
     {
       target: '[data-tour="add-schema"]',
@@ -412,7 +416,6 @@ export const App = () => {
         onAccept={() => handleMarketingConsent(true)}
         onDecline={() => handleMarketingConsent(false)}
       />
-      <DesktopOnlyNotice />
     </div>
   );
 };
