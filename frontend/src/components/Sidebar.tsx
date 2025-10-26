@@ -109,7 +109,7 @@ export const Sidebar = () => {
 
   return (
     // adicionar `min-h-0` para permitir que o filho com `overflow-y-auto` role corretamente em containers flex
-    <aside className="flex w-full flex-col border-b border-slate-200 bg-slate-50 min-h-0 overflow-y-auto lg:w-80 lg:flex-shrink-0 lg:border-b-0 lg:border-r">
+    <aside className="flex w-80 flex-col border-r border-slate-200 bg-slate-50 min-h-0">
       {/* Tabs (Tabelas / Tipos) */}
       <div className="flex gap-2 p-3">
         <button

@@ -16,6 +16,7 @@ import { parseModel } from './lib/modelSchema';
 import { useModelStore } from './store/modelStore';
 import { api, type ApiProject, type ApiUser } from './lib/api';
 import { MarketingConsentModal } from './components/MarketingConsentModal';
+import { DesktopOnlyNotice } from './components/DesktopOnlyNotice';
 
 type PreviewTab = 'json' | 'sql';
 
@@ -342,13 +343,9 @@ export const App = () => {
           skip: 'Pular',
         }}
       />
-  {/* garantir que a área principal possa conter filhos com overflow: auto */}
-  <div className="flex flex-1 flex-col overflow-hidden bg-slate-100 min-h-0 lg:flex-row">
-        <div className="flex w-full flex-col overflow-y-auto border-b border-slate-200 bg-slate-50 lg:w-80 lg:flex-shrink-0 lg:border-b-0 lg:border-r">
-          <Sidebar />
-        </div>
-        <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
-        <main className="flex flex-1 items-stretch overflow-hidden bg-slate-100">
+      <div className="flex flex-1 overflow-hidden bg-slate-100 min-h-0">
+        <Sidebar />
+        <main className="flex flex-1 items-stretch overflow-hidden">
           {showErd ? (
             <div className="flex-1 bg-slate-100">
               <ErdCanvas />
@@ -364,9 +361,8 @@ export const App = () => {
           onTabChange={setActiveTab}
           modelJson={modelJson}
           sql={sql}
-        issues={issues}
+          issues={issues}
         />
-        </div>
       </div>
       <MetricsFooter
         schemas={metrics.schemas}
@@ -401,6 +397,7 @@ export const App = () => {
         onAccept={() => handleMarketingConsent(true)}
         onDecline={() => handleMarketingConsent(false)}
       />
+      <DesktopOnlyNotice />
     </div>
   );
 };
