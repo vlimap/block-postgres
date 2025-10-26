@@ -1,0 +1,7 @@
+# robots.txt for PG Modeler
+# Allow all crawlers by default. Change Disallow rules if needed.
+User-agent: *
+Allow: /
+
+# Sitemap location (atualizado para o domínio público)
+Sitemap: https://pgmodeler.me/sitemap.xml

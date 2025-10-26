@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussões gerais
+    url: https://github.com/vlimap/block-postgres/discussions
+    about: Use discussões para perguntas, ideias abertas ou suporte.

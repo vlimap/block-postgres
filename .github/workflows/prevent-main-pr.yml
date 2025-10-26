@@ -1,0 +1,22 @@
+name: Block PRs targeting main
+
+on:
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - opened
+      - edited
+      - synchronize
+
+permissions:
+  pull-requests: write
+
+jobs:
+  block-main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail pull request
+        run: |
+          echo "PRs não devem apontar para main. Use a branch develop como base."
+          exit 1
