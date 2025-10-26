@@ -17,15 +17,18 @@ export const DesktopOnlyNotice = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/95 px-6 text-center text-white">
-      <div className="max-w-md space-y-4">
-        <h2 className="text-2xl font-semibold">Use em um computador</h2>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/95 px-6 text-center text-white">
+      <div className="max-w-md space-y-6 rounded-2xl bg-slate-900/40 p-8 shadow-2xl ring-1 ring-white/10">
+        <div className="flex flex-col items-center gap-3">
+          <img src="/logo.png" alt="PG Modeler" className="h-14 w-14 rounded-lg bg-white/10 p-2" />
+          <h1 className="text-2xl font-semibold tracking-tight">PG Modeler</h1>
+        </div>
         <p className="text-sm text-slate-200">
-          O PG Modeler foi criado para modelar diagramas ER/DER com uma interface ampla, ideal para <strong>notebooks ou desktops</strong>.
-          Para ter a melhor experiência, acesse novamente em um dispositivo com tela maior.
+          Este editor foi pensado para telas grandes, onde é possível visualizar e manipular os diagramas com conforto. Abra o
+          <strong> PG Modeler</strong> em um computador ou notebook para continuar.
         </p>
         <p className="text-xs text-slate-400">
-          Se precisar abrir os arquivos pelo celular, use um modo desktop do navegador, sabendo que alguns recursos podem não funcionar bem.
+          Caso precise acessar pelo celular, utilize o modo desktop do navegador — mas lembre-se de que alguns recursos podem ficar limitados.
         </p>
       </div>
     </div>

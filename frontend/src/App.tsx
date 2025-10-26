@@ -33,6 +33,7 @@ const createDownload = (content: string, filename: string) => {
 export const App = () => {
   const [activeTab, setActiveTab] = useState<PreviewTab>('json');
   const [runTour, setRunTour] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const model = useModelStore((state) => state.model);
   const reset = useModelStore((state) => state.reset);
   const setModel = useModelStore((state) => state.setModel);
@@ -269,9 +270,21 @@ export const App = () => {
 
   useEffect(() => {
     const seen = localStorage.getItem('hasSeenTour');
-    if (!seen) {
+    if (!isMobile && !seen) {
       setRunTour(true);
     }
+    if (isMobile) {
+      setRunTour(false);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 1024px)');
+    const update = () => setIsMobile(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener('change', update);
+    return () => mediaQuery.removeEventListener('change', update);
   }, []);
 
   const tourSteps = [
@@ -320,7 +333,9 @@ export const App = () => {
         onCopySql={handleCopySql}
         onToggleErd={toggleErd}
         showErd={showErd}
-        onStartTour={() => setRunTour(true)}
+        onStartTour={() => {
+          if (!isMobile) setRunTour(true);
+        }}
         user={user ? { name: user.name, avatarUrl: user.avatarUrl } : null}
         isUserLoading={userLoading}
         onOpenLogin={() => setShowLogin(true)}
@@ -330,7 +345,7 @@ export const App = () => {
       {/* Joyride guided tour */}
       <Joyride
         steps={tourSteps}
-        run={runTour}
+        run={!isMobile && runTour}
         continuous
         showSkipButton
         callback={handleTourCallback}
