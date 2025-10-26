@@ -1,3 +1,11 @@
+const { setDefaultResultOrder } = require('dns');
+
+try {
+  setDefaultResultOrder?.('ipv4first');
+} catch (error) {
+  // ignore environments that do not support setDefaultResultOrder
+}
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
