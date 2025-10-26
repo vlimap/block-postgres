@@ -33,7 +33,7 @@ const createDownload = (content: string, filename: string) => {
 export const App = () => {
   const [activeTab, setActiveTab] = useState<PreviewTab>('json');
   const [runTour, setRunTour] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const model = useModelStore((state) => state.model);
   const reset = useModelStore((state) => state.reset);
   const setModel = useModelStore((state) => state.setModel);
@@ -269,11 +269,11 @@ export const App = () => {
   };
 
   useEffect(() => {
+    if (isMobile === null) return;
     const seen = localStorage.getItem('hasSeenTour');
-    if (!isMobile && !seen) {
+    if (isMobile === false && !seen) {
       setRunTour(true);
-    }
-    if (isMobile) {
+    } else {
       setRunTour(false);
     }
   }, [isMobile]);
@@ -287,7 +287,7 @@ export const App = () => {
     return () => mediaQuery.removeEventListener('change', update);
   }, []);
 
-  if (isMobile) {
+  if (isMobile !== false) {
     return <DesktopOnlyNotice force />;
   }
 
@@ -338,7 +338,7 @@ export const App = () => {
         onToggleErd={toggleErd}
         showErd={showErd}
         onStartTour={() => {
-          if (!isMobile) setRunTour(true);
+          if (isMobile === false) setRunTour(true);
         }}
         user={user ? { name: user.name, avatarUrl: user.avatarUrl } : null}
         isUserLoading={userLoading}
@@ -349,7 +349,7 @@ export const App = () => {
       {/* Joyride guided tour */}
       <Joyride
         steps={tourSteps}
-        run={!isMobile && runTour}
+        run={isMobile === false && runTour}
         continuous
         showSkipButton
         callback={handleTourCallback}
