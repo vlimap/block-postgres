@@ -31,7 +31,15 @@ export const GithubLoginModal = ({ open, onClose }: Props) => {
               className="mt-1"
             />
             <span>
-              Estou ciente de que meu e-mail será utilizado para criar minha conta no PG Modeler. Posso revogar o acesso quando quiser.
+              Li e aceito os{' '}
+              <a href="/termos.html" target="_blank" rel="noreferrer" className="text-brand-600 underline-offset-2 hover:underline">
+                Termos de Uso
+              </a>{' '}
+              e a{' '}
+              <a href="/privacidade.html" target="_blank" rel="noreferrer" className="text-brand-600 underline-offset-2 hover:underline">
+                Política de Privacidade
+              </a>
+              . Estou ciente de que meus dados do GitHub serão utilizados para criar e manter minha conta.
             </span>
           </label>
           <label className="flex items-start gap-2">
