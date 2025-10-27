@@ -353,7 +353,28 @@ export const App = () => {
         continuous
         showSkipButton
         callback={handleTourCallback}
-        styles={{ options: { zIndex: 10000 } }}
+        styles={{
+          options: {
+            zIndex: 10000,
+            primaryColor: '#285d9f',
+            textColor: '#0f172a',
+          },
+          buttonNext: {
+            backgroundColor: '#285d9f',
+            borderColor: '#285d9f',
+            borderRadius: 9999,
+            color: '#ffffff',
+          },
+          buttonBack: {
+            color: '#285d9f',
+          },
+          buttonSkip: {
+            color: '#285d9f',
+          },
+          buttonClose: {
+            color: '#285d9f',
+          },
+        }}
         locale={{
           back: 'Anterior',
           close: 'Fechar',
