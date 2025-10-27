@@ -118,6 +118,7 @@ type ModelState = {
   addColumn: (tableId: string, name?: string) => string;
   updateColumn: (tableId: string, columnId: string, patch: Partial<Column>) => void;
   removeColumn: (tableId: string, columnId: string) => void;
+  moveColumn: (tableId: string, columnId: string, targetColumnId: string) => void;
       addForeignKey: (
         tableId: string,
         fk: Omit<ForeignKey, 'id'>,
@@ -436,6 +437,47 @@ export const useModelStore = create<ModelState>()(
               tables: updatedTables,
             },
             selectedColumnId: nextSelectedColumnId,
+          };
+        });
+      },
+
+      moveColumn: (tableId, columnId, targetColumnId) => {
+        if (columnId === targetColumnId) {
+          return;
+        }
+        set((state) => {
+          const tableIndex = state.model.tables.findIndex(
+            (table) => table.id === tableId,
+          );
+          if (tableIndex === -1) {
+            return state;
+          }
+          const table = state.model.tables[tableIndex];
+          const columns = [...table.columns];
+          const fromIndex = columns.findIndex(
+            (column) => column.id === columnId,
+          );
+          const toIndex = columns.findIndex(
+            (column) => column.id === targetColumnId,
+          );
+          if (fromIndex === -1 || toIndex === -1) {
+            return state;
+          }
+          const updatedColumns = [...columns];
+          const [moved] = updatedColumns.splice(fromIndex, 1);
+          updatedColumns.splice(toIndex, 0, moved);
+          const updatedTables = state.model.tables.map((item, idx) =>
+            idx === tableIndex ? { ...item, columns: updatedColumns } : item,
+          );
+          return {
+            model: {
+              ...state.model,
+              tables: updatedTables,
+            },
+            selectedColumnId:
+              state.selectedColumnId === columnId
+                ? columnId
+                : state.selectedColumnId,
           };
         });
       },

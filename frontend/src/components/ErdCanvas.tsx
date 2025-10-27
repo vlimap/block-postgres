@@ -117,6 +117,7 @@ const ErdCanvasInner = () => {
   const setTablePositions = useModelStore((state) => state.setTablePositions);
   const updateColumn = useModelStore((state) => state.updateColumn);
   const addColumn = useModelStore((state) => state.addColumn);
+  const moveColumn = useModelStore((state) => state.moveColumn);
   const removeColumn = useModelStore((state) => state.removeColumn);
   const addForeignKey = useModelStore((state) => state.addForeignKey);
   const updateForeignKey = useModelStore((state) => state.updateForeignKey);
@@ -229,6 +230,13 @@ const ErdCanvasInner = () => {
     [removeColumn],
   );
 
+  const handleReorderColumn = useCallback(
+    (tableId: string, columnId: string, targetColumnId: string) => {
+      moveColumn(tableId, columnId, targetColumnId);
+    },
+    [moveColumn],
+  );
+
   const nodes = useMemo<TableNodeType[]>(() => {
     return model.tables.map((table, index) => ({
       id: table.id,
@@ -241,6 +249,7 @@ const ErdCanvasInner = () => {
         onUpdateColumn: handleUpdateColumn,
         onAddColumn: handleAddColumn,
         onRemoveColumn: handleRemoveColumn,
+        onReorderColumn: handleReorderColumn,
       },
       position: table.position ?? placeholderPosition(index),
       draggable: true,
@@ -259,6 +268,7 @@ const ErdCanvasInner = () => {
     handleUpdateColumn,
     handleAddColumn,
     handleRemoveColumn,
+    handleReorderColumn,
     selectedNodeIds,
   ]);
 
