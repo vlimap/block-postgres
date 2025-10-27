@@ -5,6 +5,9 @@ type KeyBindingsProps = {
   selectedNodeIds: string[];
   setSelectedNodeIds: (ids: string[]) => void;
   removeTable: (id: string) => void;
+  selectedTableId: string | null;
+  selectedColumnId: string | null;
+  removeColumn: (tableId: string, columnId: string) => void;
 };
 
 export const KeyBindings = ({
@@ -12,6 +15,9 @@ export const KeyBindings = ({
   selectedNodeIds,
   setSelectedNodeIds,
   removeTable,
+  selectedTableId,
+  selectedColumnId,
+  removeColumn,
 }: KeyBindingsProps) => {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -36,6 +42,10 @@ export const KeyBindings = ({
       // Delete / Backspace -> remove selected
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
+        if (selectedColumnId && selectedTableId) {
+          removeColumn(selectedTableId, selectedColumnId);
+          return;
+        }
         if (selectedNodeIds.length > 0) {
           selectedNodeIds.forEach((id) => removeTable(id));
         }
@@ -44,7 +54,15 @@ export const KeyBindings = ({
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [allNodeIds, selectedNodeIds, setSelectedNodeIds, removeTable]);
+  }, [
+    allNodeIds,
+    selectedNodeIds,
+    setSelectedNodeIds,
+    removeTable,
+    removeColumn,
+    selectedColumnId,
+    selectedTableId,
+  ]);
 
   return null;
 };

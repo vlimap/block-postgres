@@ -1085,6 +1085,9 @@ const ErdCanvasInner = () => {
         selectedNodeIds={selectedNodeIds}
         setSelectedNodeIds={setSelectedNodeIds}
         removeTable={removeTable}
+        selectedTableId={selectedTableId}
+        selectedColumnId={selectedColumnId}
+        removeColumn={removeColumn}
       />
       {selectedEdgeInfo && (
         <div className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2">
