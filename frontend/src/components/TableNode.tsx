@@ -175,6 +175,12 @@ export const TableNode = ({ data, selected }: NodeProps<TableNodeType>) => {
             dragOverColumnId === column.id &&
             draggedColumnId != null &&
             draggedColumnId !== column.id;
+          const fromIndex = draggedColumnId
+            ? table.columns.findIndex((c) => c.id === draggedColumnId)
+            : -1;
+          const toIndex = table.columns.findIndex((c) => c.id === column.id);
+          const isDropAbove = isDragOver && fromIndex > toIndex;
+          const isDropBelow = isDragOver && fromIndex < toIndex;
           return (
             <div
               key={column.id}
@@ -183,7 +189,7 @@ export const TableNode = ({ data, selected }: NodeProps<TableNodeType>) => {
                 isActive
                   ? 'border-brand-400 bg-brand-50 ring-1 ring-brand-200 shadow-sm'
                   : isDragOver
-                  ? 'border-dashed border-brand-300 bg-brand-50/60'
+                  ? 'border-brand-300 bg-brand-50/60'
                   : 'border-slate-200 bg-white hover:border-brand-200'
               }`}
               draggable
@@ -232,7 +238,9 @@ export const TableNode = ({ data, selected }: NodeProps<TableNodeType>) => {
                   )}
                 </div>
               </button>
-
+              {isDropAbove && (
+                <div className="pointer-events-none absolute inset-x-2 top-1 h-0.5 rounded-full bg-brand-400/90 shadow-[0_0_4px_rgba(37,99,235,0.55)]" />
+              )}
               <Handle
                 type="target"
                 position={Position.Left}
@@ -247,6 +255,9 @@ export const TableNode = ({ data, selected }: NodeProps<TableNodeType>) => {
                 className={handleClass}
                 style={{ top: '50%', right: -6, transform: 'translate(50%, -50%)' }}
               />
+              {isDropBelow && (
+                <div className="pointer-events-none absolute inset-x-2 bottom-1 h-0.5 rounded-full bg-brand-400/90 shadow-[0_0_4px_rgba(37,99,235,0.55)]" />
+              )}
             </div>
           );
         })}
