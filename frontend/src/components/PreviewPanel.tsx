@@ -1,12 +1,16 @@
 import type { ModelIssue } from '../lib/warnings';
 import { POSTGRES_TYPES } from '../constants/postgresTypes';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { useModelStore } from '../store/modelStore';
 import type { Column } from '../types/model';
 import { computeKindsFromModel, normalizeCardinality } from './CrowFootEdge';
 import { buildConstraintName } from '../lib/naming';
-import { sqlToModel } from '../lib/sqlToModel';
+import { ensureMonacoSetup } from '../lib/monacoSetup';
+
+if (typeof window !== 'undefined') {
+  ensureMonacoSetup();
+}
 
 type PreviewTab = 'json' | 'sql';
 
@@ -41,10 +45,50 @@ export const PreviewPanel = ({
   const updateForeignKey = useModelStore((s) => s.updateForeignKey);
   const removeForeignKey = useModelStore((s) => s.removeForeignKey);
   const setModel = useModelStore((s) => s.setModel);
+  const workerRef = useRef<Worker | null>(null);
 
   const [sqlDraft, setSqlDraft] = useState(sql);
   const [sqlDirty, setSqlDirty] = useState(false);
   const [sqlError, setSqlError] = useState<string | null>(null);
+  const [sqlBusy, setSqlBusy] = useState(false);
+
+  useEffect(() => {
+    const worker = new Worker(new URL('../workers/sqlToModel.worker.ts', import.meta.url), {
+      type: 'module',
+    });
+    workerRef.current = worker;
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const worker = workerRef.current;
+    if (!worker) return;
+    const handler = (event: MessageEvent<any>) => {
+      const message = event.data;
+      if (!message) return;
+      if (message.kind === 'model') {
+        setSqlBusy(false);
+        if (message.payload) {
+          setModel(message.payload);
+          setSqlDirty(false);
+          setSqlError(null);
+        } else {
+          setSqlError('Nenhum objeto foi encontrado no SQL informado.');
+        }
+      } else if (message.kind === 'error') {
+        setSqlBusy(false);
+        setSqlError(message.message ?? 'Falha ao interpretar o SQL informado.');
+      } else if (message.kind === 'validated') {
+        setSqlBusy(false);
+        setSqlError(null);
+      }
+    };
+    worker.addEventListener('message', handler);
+    return () => worker.removeEventListener('message', handler);
+  }, [setModel]);
 
   useEffect(() => {
     if (!sqlDirty) {
@@ -54,22 +98,21 @@ export const PreviewPanel = ({
   }, [sql, sqlDirty]);
 
   const handleApplySql = () => {
-    try {
-      const parsed = sqlToModel(sqlDraft);
-      if (parsed.tables.length === 0 && parsed.types.length === 0) {
-        throw new Error('Nenhuma tabela ou tipo foi reconhecido no SQL informado.');
-      }
-      setModel(parsed);
-      setSqlError(null);
-    } catch (error) {
-      setSqlError(error instanceof Error ? error.message : 'Falha ao interpretar o SQL informado.');
+    const worker = workerRef.current;
+    if (!worker) {
+      setSqlError('Worker de análise não inicializado. Recarregue a página e tente novamente.');
+      return;
     }
+    setSqlBusy(true);
+    setSqlError(null);
+    worker.postMessage({ kind: 'build', sql: sqlDraft });
   };
 
   const handleResetSql = () => {
     setSqlDraft(sql);
     setSqlDirty(false);
     setSqlError(null);
+    setSqlBusy(false);
   };
 
   const selected = useMemo(() => {
@@ -348,59 +391,67 @@ export const PreviewPanel = ({
           </div>
         </div>
       ) : (
-        <div className="flex h-full flex-1 flex-col bg-slate-50">
-          <div className="flex-1 border-b border-slate-200 bg-white">
-            <Editor
-              height="100%"
-              language="sql"
-              theme="vs-light"
-              value={sqlDraft}
-              onChange={(value) => {
-                setSqlDraft(value ?? '');
-                setSqlDirty(true);
-              }}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 12,
-                wordWrap: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-              }}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-3 bg-white px-4 py-3 text-xs text-slate-500">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={handleApplySql}
-                disabled={!sqlDirty}
-              >
-                Aplicar DDL ao diagrama
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={handleResetSql}
-                disabled={!sqlDirty}
-              >
-                Reverter alterações
-              </button>
+        <div className="flex h-full flex-1 flex-col gap-4 bg-slate-50 px-5 py-5">
+          <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex-1 bg-slate-50/60 p-4">
+              <div className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-inner">
+                <Editor
+                  height="100%"
+                  language="sql"
+                  theme="vs-light"
+                  value={sqlDraft}
+                  onChange={(value) => {
+                    setSqlDraft(value ?? '');
+                    setSqlDirty(true);
+                  }}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 12,
+                    wordWrap: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
+                />
+              </div>
             </div>
-            {sqlDirty && !sqlError && (
-              <span className="text-xs text-slate-500">SQL editado (ainda não aplicado)</span>
-            )}
-          </div>
-          {sqlError && (
-            <div className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
-              {sqlError}
+            <div className="border-t border-slate-200 bg-white/90 px-5 py-4 text-sm text-slate-600">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={handleApplySql}
+                    disabled={!sqlDirty || sqlBusy}
+                  >
+                    {sqlBusy ? 'Processando...' : 'Aplicar DDL ao diagrama'}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-brand-200 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={handleResetSql}
+                    disabled={!sqlDirty}
+                  >
+                    Reverter alterações
+                  </button>
+                </div>
+                {sqlDirty && !sqlError && !sqlBusy && (
+                  <span className="text-xs font-medium text-slate-500">
+                    SQL editado (ainda não aplicado)
+                  </span>
+                )}
+              </div>
+              {sqlError && (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+                  {sqlError}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 
       <div className="border-t border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
-        {errorIssues.length === 0 && warningIssues.length === 0 && (
+        {errorIssues.length === 0 && warningIssues.length === 0 && !sqlError && (
           <p className="flex items-center gap-2">
             <i className="bi bi-check-circle-fill text-emerald-500" aria-hidden="true" />
             Sem inconsistências detectadas.
