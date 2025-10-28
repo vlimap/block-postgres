@@ -5,6 +5,7 @@ const { projectPayloadSchema } = require('../utils/validation');
 
 const router = express.Router();
 
+// Todas as rotas abaixo exigem sessão válida.
 router.use(requireAuth);
 
 router.get('/', async (req, res) => {

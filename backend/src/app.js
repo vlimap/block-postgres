@@ -44,6 +44,7 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || FRONTEND_URL)
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// Rate limit específico para endpoints delicados de autenticação.
 const authLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 20,
@@ -51,6 +52,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Limite geral para evitar flood em qualquer rota REST.
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 120,
@@ -67,6 +69,7 @@ const createApp = async () => {
     expiration: 7 * 24 * 60 * 60 * 1000,
   });
 
+  // Camada de segurança: CSP dinâmico, Helmet e compressão.
   app.use(
     helmet({
       contentSecurityPolicy:
@@ -103,6 +106,7 @@ const createApp = async () => {
   app.use(generalLimiter);
   app.use(
     session({
+      // Sessão persistida no Postgres via connect-session-sequelize.
       secret: SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
@@ -121,6 +125,7 @@ const createApp = async () => {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Health-check simples para uptime monitors.
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
@@ -128,6 +133,7 @@ const createApp = async () => {
   app.use('/api/auth', authLimiter, authRoutes);
   app.use('/api/projects', projectRoutes);
 
+  // Retorna usuário logado para hydration do frontend.
   app.get('/api/me', (req, res) => {
     if (!req.user) {
       return res.status(200).json({ user: null });
@@ -145,6 +151,7 @@ const createApp = async () => {
     });
   });
 
+  // Armazena consentimento de marketing (LGPD).
   app.post('/api/me/marketing-consent', requireAuth, async (req, res, next) => {
     const parse = marketingConsentSchema.safeParse(req.body);
     if (!parse.success) {
@@ -165,6 +172,7 @@ const createApp = async () => {
   });
 
   if (NODE_ENV === 'test') {
+    // Endpoint auxiliar para testes integrais (simula login sem OAuth).
     app.post('/__test/login', async (req, res, next) => {
       try {
         const { userId } = req.body;
@@ -187,6 +195,7 @@ const createApp = async () => {
     });
   }
 
+  // Falhas não tratadas vão usar este handler padrão JSON.
   app.use((err, _req, res, _next) => {
     console.error(err);
     res.status(err.status || 500).json({ error: err.message || 'Erro interno no servidor' });

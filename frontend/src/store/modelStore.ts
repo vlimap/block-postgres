@@ -20,6 +20,7 @@ const createId = (): string => {
   return Math.random().toString(36).slice(2);
 };
 
+// Modelo inicial usado ao carregar a aplicação ou resetar o workspace.
 const createDefaultModel = (): DbModel => {
   const schemaId = createId();
   return {
@@ -30,6 +31,7 @@ const createDefaultModel = (): DbModel => {
   };
 };
 
+// Coluna padrão com PK gerada automaticamente.
 const createDefaultColumn = (name: string, type = 'uuid'): Column => ({
   id: createId(),
   name,

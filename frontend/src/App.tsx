@@ -57,6 +57,7 @@ export const App = () => {
   const [showConsent, setShowConsent] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
 
+  // Carrega projetos remotos e popula o modal do Workspace.
   const loadProjects = useCallback(async () => {
     setProjectsLoading(true);
     try {
@@ -70,6 +71,7 @@ export const App = () => {
     }
   }, []);
 
+  // Sincroniza usuário autenticado + preferências LGPD.
   const loadUser = useCallback(async () => {
     setUserLoading(true);
     try {

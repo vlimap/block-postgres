@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
     "@xyflow/react": "^12.9.0",
     "bootstrap-icons": "^1.13.1",
     "elkjs": "^0.11.0",
     "html-to-image": "^1.11.11",
+    "monaco-editor": "^0.52.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-joyride": "^2.5.0",

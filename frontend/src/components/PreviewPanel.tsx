@@ -1,10 +1,12 @@
 import type { ModelIssue } from '../lib/warnings';
 import { POSTGRES_TYPES } from '../constants/postgresTypes';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Editor from '@monaco-editor/react';
 import { useModelStore } from '../store/modelStore';
 import type { Column } from '../types/model';
 import { computeKindsFromModel, normalizeCardinality } from './CrowFootEdge';
 import { buildConstraintName } from '../lib/naming';
+import { sqlToModel } from '../lib/sqlToModel';
 
 type PreviewTab = 'json' | 'sql';
 
@@ -38,6 +40,35 @@ export const PreviewPanel = ({
   const addForeignKey = useModelStore((s) => s.addForeignKey);
   const updateForeignKey = useModelStore((s) => s.updateForeignKey);
   const removeForeignKey = useModelStore((s) => s.removeForeignKey);
+  const setModel = useModelStore((s) => s.setModel);
+
+  const [sqlDraft, setSqlDraft] = useState(sql);
+  const [sqlDirty, setSqlDirty] = useState(false);
+  const [sqlError, setSqlError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sqlDirty) {
+      setSqlDraft(sql);
+      setSqlError(null);
+    }
+  }, [sql, sqlDirty]);
+
+  const handleApplySql = () => {
+    try {
+      const parsed = sqlToModel(sqlDraft);
+      setModel(parsed);
+      setSqlDirty(false);
+      setSqlError(null);
+    } catch (error) {
+      setSqlError(error instanceof Error ? error.message : 'Falha ao interpretar o SQL informado.');
+    }
+  };
+
+  const handleResetSql = () => {
+    setSqlDraft(sql);
+    setSqlDirty(false);
+    setSqlError(null);
+  };
 
   const selected = useMemo(() => {
     if (!selectedTableId || !selectedColumnId) return null;
@@ -315,14 +346,58 @@ export const PreviewPanel = ({
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-auto bg-slate-50">
-          <pre className="h-full whitespace-pre-wrap break-words bg-white p-4 font-mono text-xs text-slate-800">
-            {sql}
-          </pre>
+        <div className="flex h-full flex-1 flex-col bg-slate-50">
+          <div className="flex-1 border-b border-slate-200 bg-white">
+            <Editor
+              height="100%"
+              language="sql"
+              theme="vs-light"
+              value={sqlDraft}
+              onChange={(value) => {
+                setSqlDraft(value ?? '');
+                setSqlDirty(true);
+              }}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 13,
+                wordWrap: 'on',
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3 bg-white px-4 py-3 text-xs text-slate-500">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={handleApplySql}
+                disabled={!sqlDirty}
+              >
+                Aplicar DDL ao diagrama
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={handleResetSql}
+                disabled={!sqlDirty}
+              >
+                Reverter alterações
+              </button>
+            </div>
+            {sqlDirty && !sqlError && (
+              <span className="text-xs text-slate-500">SQL editado (ainda não aplicado)</span>
+            )}
+          </div>
         </div>
       )}
 
       <div className="border-t border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
+        {sqlError && (
+          <p className="mb-2 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-rose-600">
+            {sqlError}
+          </p>
+        )}
         {errorIssues.length === 0 && warningIssues.length === 0 && (
           <p className="flex items-center gap-2">
             <i className="bi bi-check-circle-fill text-emerald-500" aria-hidden="true" />

@@ -6,6 +6,7 @@ const router = express.Router();
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
 router.get('/github', (req, res, next) => {
+  // Bloqueia fluxo se variáveis de OAuth não estiverem preenchidas.
   if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
     return res.status(503).json({ error: 'Login com GitHub não configurado.' });
   }
@@ -18,6 +19,7 @@ router.get(
     failureRedirect: `${FRONTEND_URL}?auth=failed`,
   }),
   (_req, res) => {
+    // Redireciona de volta ao frontend aplicando status via query string.
     res.redirect(`${FRONTEND_URL}?auth=success`);
   },
 );

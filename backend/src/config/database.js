@@ -22,6 +22,7 @@ const isTest = NODE_ENV === 'test';
 let sequelize;
 
 if (isTest) {
+  // Em testes usamos SQLite em memória (rápido e isolado).
   sequelize = new Sequelize({
     dialect: 'sqlite',
     storage: TEST_DB_STORAGE || ':memory:',
