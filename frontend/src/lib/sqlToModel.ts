@@ -28,6 +28,7 @@ const stripSingleQuotes = (value: string): string => {
 type Statement = {
   text: string;
   startLine: number;
+  startIndex: number;
 };
 
 const splitStatements = (sql: string): Statement[] => {
@@ -38,6 +39,7 @@ const splitStatements = (sql: string): Statement[] => {
   let inDouble = false;
   let line = 1;
   let startLine = 1;
+  let fragmentStartIndex = 0;
 
   for (let i = 0; i < sql.length; i += 1) {
     const char = sql[i];
@@ -84,23 +86,25 @@ const splitStatements = (sql: string): Statement[] => {
     if (char === ';' && depth === 0) {
       const trimmed = current.trim();
       if (trimmed.length > 0) {
-        statements.push({ text: trimmed, startLine });
+        statements.push({ text: trimmed, startLine, startIndex: fragmentStartIndex });
       }
       current = '';
       startLine = line;
+      fragmentStartIndex = i + 1;
     }
 
     if (char === '\n') {
       line += 1;
       if (current.trim().length === 0) {
         startLine = line;
+        fragmentStartIndex = i + 1;
       }
     }
   }
 
   const final = current.trim();
   if (final.length > 0) {
-    statements.push({ text: final, startLine });
+    statements.push({ text: final, startLine, startIndex: fragmentStartIndex });
   }
 
   return statements;
@@ -331,7 +335,8 @@ export const sqlToModel = (sql: string): DbModel => {
         if (!columnMatch) {
           throw new Error(`Linha ${startLine}: não foi possível interpretar a coluna "${definition.trim()}".`);
         }
-        const [, columnNameRaw, typeRaw, rest] = columnMatch;
+        const [, columnNameRaw, typeRaw, restRaw] = columnMatch;
+        const rest = restRaw;
         const columnName = stripQuotes(columnNameRaw);
         const type = typeRaw.trim();
         const nullable = !/not\s+null/i.test(rest);
