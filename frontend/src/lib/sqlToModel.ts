@@ -25,12 +25,19 @@ const stripSingleQuotes = (value: string): string => {
   return trimmed;
 };
 
-const splitStatements = (sql: string): string[] => {
-  const statements: string[] = [];
+type Statement = {
+  text: string;
+  startLine: number;
+};
+
+const splitStatements = (sql: string): Statement[] => {
+  const statements: Statement[] = [];
   let current = '';
   let depth = 0;
   let inSingle = false;
   let inDouble = false;
+  let line = 1;
+  let startLine = 1;
 
   for (let i = 0; i < sql.length; i += 1) {
     const char = sql[i];
@@ -77,15 +84,23 @@ const splitStatements = (sql: string): string[] => {
     if (char === ';' && depth === 0) {
       const trimmed = current.trim();
       if (trimmed.length > 0) {
-        statements.push(trimmed);
+        statements.push({ text: trimmed, startLine });
       }
       current = '';
+      startLine = line;
+    }
+
+    if (char === '\n') {
+      line += 1;
+      if (current.trim().length === 0) {
+        startLine = line;
+      }
     }
   }
 
   const final = current.trim();
   if (final.length > 0) {
-    statements.push(final);
+    statements.push({ text: final, startLine });
   }
 
   return statements;
@@ -164,7 +179,7 @@ export const sqlToModel = (sql: string): DbModel => {
 
   const statements = splitStatements(sql);
 
-  statements.forEach((statement) => {
+  statements.forEach(({ text: statement, startLine }) => {
     const lowered = statement.trim().toLowerCase();
     if (lowered.startsWith('create schema')) {
       const match = statement.match(/create\s+schema\s+(?:if\s+not\s+exists\s+)?([^;]+)/i);
@@ -196,7 +211,9 @@ export const sqlToModel = (sql: string): DbModel => {
 
     if (lowered.startsWith('create table')) {
       const headerMatch = statement.match(/create\s+table\s+([^\s]+)\s*\((.*)\)\s*;?$/is);
-      if (!headerMatch) return;
+      if (!headerMatch) {
+        throw new Error(`Linha ${startLine}: não foi possível interpretar o comando CREATE TABLE.`);
+      }
       const qualified = headerMatch[1].trim();
       const body = headerMatch[2];
       const [schemaName, tableName] = parseQualifiedName(qualified);
@@ -251,7 +268,9 @@ export const sqlToModel = (sql: string): DbModel => {
 
         if (/^constraint/i.test(definition)) {
           const match = definition.match(/constraint\s+"?([^"]+)"?\s+foreign\s+key\s*\(([^)]+)\)\s+references\s+([^\s(]+)\s*\(([^)]+)\)(.*)/i);
-          if (!match) return;
+          if (!match) {
+            throw new Error(`Linha ${startLine}: constraint não reconhecida (${definition.trim()}).`);
+          }
           const [, nameRaw, fromColsRaw, targetRaw, targetColsRaw, suffix] = match;
           const fromCol = stripQuotes(fromColsRaw.split(',')[0]);
           const targetQualified = targetRaw.trim();
@@ -268,14 +287,16 @@ export const sqlToModel = (sql: string): DbModel => {
             targetSchema,
             targetTable,
             targetColumn,
-            onDelete: onDeleteMatch ? onDeleteMatch[1].toUpperCase() as ForeignKey['onDelete'] : undefined,
-            onUpdate: onUpdateMatch ? onUpdateMatch[1].toUpperCase() as ForeignKey['onUpdate'] : undefined,
+            onDelete: onDeleteMatch ? (onDeleteMatch[1].toUpperCase() as ForeignKey['onDelete']) : undefined,
+            onUpdate: onUpdateMatch ? (onUpdateMatch[1].toUpperCase() as ForeignKey['onUpdate']) : undefined,
           });
           return;
         }
 
         const columnMatch = definition.match(/"?([^"]+)"?\s+([^\s]+(?:\s*\([^)]*\))?)(.*)$/i);
-        if (!columnMatch) return;
+        if (!columnMatch) {
+          throw new Error(`Linha ${startLine}: não foi possível interpretar a coluna "${definition.trim()}".`);
+        }
         const [, columnNameRaw, typeRaw, rest] = columnMatch;
         const columnName = stripQuotes(columnNameRaw);
         const type = typeRaw.trim();
@@ -336,7 +357,9 @@ export const sqlToModel = (sql: string): DbModel => {
       const targetDraft = tableDrafts.get(`${fkDraft.targetSchema}.${fkDraft.targetTable}`);
       const targetColumn = targetDraft?.columnsByName.get(fkDraft.targetColumn);
       if (!fromColumn || !targetDraft || !targetColumn) {
-        return;
+        throw new Error(
+          `Constraint "${fkDraft.name}" referencia objeto inexistente (${fkDraft.targetSchema}.${fkDraft.targetTable}.${fkDraft.targetColumn}).`)
+        ;
       }
       const fk: ForeignKey = {
         id: createId(),

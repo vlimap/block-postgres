@@ -60,7 +60,6 @@ export const PreviewPanel = ({
         throw new Error('Nenhuma tabela ou tipo foi reconhecido no SQL informado.');
       }
       setModel(parsed);
-      setSqlDirty(false);
       setSqlError(null);
     } catch (error) {
       setSqlError(error instanceof Error ? error.message : 'Falha ao interpretar o SQL informado.');
