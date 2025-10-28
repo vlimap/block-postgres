@@ -297,6 +297,34 @@ export const sqlToModel = (sql: string): DbModel => {
           return;
         }
 
+        // unnamed table-level FOREIGN KEY (...) REFERENCES schema.table(column) ...
+        if (/^foreign\s+key/i.test(definition)) {
+          const match = definition.match(/foreign\s+key\s*\(([^)]+)\)\s+references\s+([^\s(]+)\s*\(([^)]+)\)(.*)/i);
+          if (!match) {
+            throw new Error(`Linha ${startLine}: foreign key não reconhecida (${definition.trim()}).`);
+          }
+          const [, fromColsRaw, targetRaw, targetColsRaw, suffix] = match;
+          const fromCol = stripQuotes(fromColsRaw.split(',')[0]);
+          const targetQualified = targetRaw.trim();
+          const [targetSchemaRaw, targetTableRaw] = targetQualified.split('.');
+          const targetSchema = targetTableRaw ? stripQuotes(targetSchemaRaw) : 'public';
+          const targetTable = targetTableRaw ? stripQuotes(targetTableRaw) : stripQuotes(targetSchemaRaw);
+          const targetColumn = stripQuotes(targetColsRaw.split(',')[0]);
+          const onDeleteMatch = suffix.match(/on\s+delete\s+(cascade|set\s+null|set\s+default|restrict|no\s+action)/i);
+          const onUpdateMatch = suffix.match(/on\s+update\s+(cascade|set\s+null|set\s+default|restrict|no\s+action)/i);
+
+          fkDrafts.push({
+            name: `${tableName}_${fromCol}_fkey`,
+            fromColumn: fromCol,
+            targetSchema,
+            targetTable,
+            targetColumn,
+            onDelete: onDeleteMatch ? (onDeleteMatch[1].toUpperCase() as ForeignKey['onDelete']) : undefined,
+            onUpdate: onUpdateMatch ? (onUpdateMatch[1].toUpperCase() as ForeignKey['onUpdate']) : undefined,
+          });
+          return;
+        }
+
         const columnMatch = definition.match(/"?([^"]+)"?\s+([^\s]+(?:\s*\([^)]*\))?)(.*)$/i);
         if (!columnMatch) {
           throw new Error(`Linha ${startLine}: não foi possível interpretar a coluna "${definition.trim()}".`);
@@ -319,6 +347,28 @@ export const sqlToModel = (sql: string): DbModel => {
 
         table.columns.push(column);
         columnsByName.set(columnName, column);
+
+        // column-level REFERENCES ... -> create a FK draft
+        const referencesMatch = rest.match(/references\s+([^\s(]+)\s*\(([^)]+)\)/i);
+        if (referencesMatch) {
+          const targetQualified = referencesMatch[1].trim();
+          const targetColumnName = stripQuotes(referencesMatch[2].split(',')[0]);
+          const [targetSchemaRaw, targetTableRaw] = targetQualified.split('.');
+          const targetSchema = targetTableRaw ? stripQuotes(targetSchemaRaw) : 'public';
+          const targetTable = targetTableRaw ? stripQuotes(targetTableRaw) : stripQuotes(targetSchemaRaw);
+          const onDeleteMatch = rest.match(/on\s+delete\s+(cascade|set\s+null|set\s+default|restrict|no\s+action)/i);
+          const onUpdateMatch = rest.match(/on\s+update\s+(cascade|set\s+null|set\s+default|restrict|no\s+action)/i);
+
+          fkDrafts.push({
+            name: `${tableName}_${columnName}_fkey`,
+            fromColumn: columnName,
+            targetSchema,
+            targetTable,
+            targetColumn: targetColumnName,
+            onDelete: onDeleteMatch ? (onDeleteMatch[1].toUpperCase() as ForeignKey['onDelete']) : undefined,
+            onUpdate: onUpdateMatch ? (onUpdateMatch[1].toUpperCase() as ForeignKey['onUpdate']) : undefined,
+          });
+        }
       });
 
       tables.push(table);
