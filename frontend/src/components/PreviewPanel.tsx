@@ -391,15 +391,15 @@ export const PreviewPanel = ({
               <span className="text-xs text-slate-500">SQL editado (ainda não aplicado)</span>
             )}
           </div>
+          {sqlError && (
+            <div className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+              {sqlError}
+            </div>
+          )}
         </div>
       )}
 
       <div className="border-t border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
-        {sqlError && (
-          <p className="mb-2 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-rose-600">
-            {sqlError}
-          </p>
-        )}
         {errorIssues.length === 0 && warningIssues.length === 0 && (
           <p className="flex items-center gap-2">
             <i className="bi bi-check-circle-fill text-emerald-500" aria-hidden="true" />
