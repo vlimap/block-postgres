@@ -358,7 +358,14 @@ export const sqlToModel = (sql: string): DbModel => {
   tableDrafts.forEach((draft, key) => {
     draft.foreignKeysDraft.forEach((fkDraft) => {
       const fromColumn = draft.columnsByName.get(fkDraft.fromColumn);
-      const targetDraft = tableDrafts.get(`${fkDraft.targetSchema}.${fkDraft.targetTable}`);
+      let targetDraft = tableDrafts.get(`${fkDraft.targetSchema}.${fkDraft.targetTable}`);
+      if (!targetDraft) {
+        targetDraft = Array.from(tableDrafts.values()).find(
+          (candidate) =>
+            candidate.table.schemaId === ensureSchema(fkDraft.targetSchema).id &&
+            candidate.table.name === stripQuotes(fkDraft.targetTable),
+        );
+      }
       const targetColumn = targetDraft?.columnsByName.get(fkDraft.targetColumn);
       if (!fromColumn || !targetDraft || !targetColumn) {
         throw new Error(
