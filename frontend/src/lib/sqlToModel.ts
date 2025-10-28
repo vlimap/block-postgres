@@ -175,7 +175,7 @@ export const sqlToModel = (sql: string): DbModel => {
     }
 
     if (lowered.startsWith('create type')) {
-      const match = statement.match(/create\s+type\s+([^\s]+)\s+as\s+enum\s*\(([^)]+)\)/i);
+      const match = statement.match(/create\s+type\s+([^\s]+)\s+as\s+enum\s*\(([^)]+)\)\s*;?$/i);
       if (!match) return;
       const qualified = match[1].trim();
       const [schemaName, typeName] = parseQualifiedName(qualified);
@@ -195,7 +195,7 @@ export const sqlToModel = (sql: string): DbModel => {
     }
 
     if (lowered.startsWith('create table')) {
-      const headerMatch = statement.match(/create\s+table\s+([^\s]+)\s*\((.*)\)\s*$/is);
+      const headerMatch = statement.match(/create\s+table\s+([^\s]+)\s*\((.*)\)\s*;?$/is);
       if (!headerMatch) return;
       const qualified = headerMatch[1].trim();
       const body = headerMatch[2];
@@ -306,7 +306,7 @@ export const sqlToModel = (sql: string): DbModel => {
     }
 
     if (lowered.startsWith('comment on table')) {
-      const match = statement.match(/comment\s+on\s+table\s+([^\s]+)\s+is\s+(.+)/i);
+      const match = statement.match(/comment\s+on\s+table\s+([^\s]+)\s+is\s+(.+);?$/i);
       if (match) {
         const [schemaName, tableName] = parseQualifiedName(match[1].trim());
         tableComments.set(`${schemaName}.${tableName}`, stripSingleQuotes(match[2]));
@@ -315,7 +315,7 @@ export const sqlToModel = (sql: string): DbModel => {
     }
 
     if (lowered.startsWith('comment on column')) {
-      const match = statement.match(/comment\s+on\s+column\s+([^\s]+)\s+is\s+(.+)/i);
+      const match = statement.match(/comment\s+on\s+column\s+([^\s]+)\s+is\s+(.+);?$/i);
       if (match) {
         const cleaned = match[1].trim();
         const lastDot = cleaned.lastIndexOf('.');

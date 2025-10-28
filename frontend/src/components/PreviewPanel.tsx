@@ -56,6 +56,9 @@ export const PreviewPanel = ({
   const handleApplySql = () => {
     try {
       const parsed = sqlToModel(sqlDraft);
+      if (parsed.tables.length === 0 && parsed.types.length === 0) {
+        throw new Error('Nenhuma tabela ou tipo foi reconhecido no SQL informado.');
+      }
       setModel(parsed);
       setSqlDirty(false);
       setSqlError(null);
