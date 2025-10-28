@@ -155,6 +155,8 @@ type TableDraft = {
   }>;
 };
 
+const keyFor = (schema: string, name: string): string => `${schema.toLowerCase()}.${name.toLowerCase()}`;
+
 export const sqlToModel = (sql: string): DbModel => {
   const schemas: Schema[] = [];
   const schemaByName = new Map<string, Schema>();
@@ -372,7 +374,7 @@ export const sqlToModel = (sql: string): DbModel => {
       });
 
       tables.push(table);
-      tableDrafts.set(`${schemaName}.${tableName}`, {
+      tableDrafts.set(keyFor(schemaName, tableName), {
         table,
         columnsByName,
         foreignKeysDraft: fkDrafts,
@@ -408,7 +410,7 @@ export const sqlToModel = (sql: string): DbModel => {
   tableDrafts.forEach((draft, key) => {
     draft.foreignKeysDraft.forEach((fkDraft) => {
       const fromColumn = draft.columnsByName.get(fkDraft.fromColumn);
-      let targetDraft = tableDrafts.get(`${fkDraft.targetSchema}.${fkDraft.targetTable}`);
+      let targetDraft = tableDrafts.get(keyFor(fkDraft.targetSchema, fkDraft.targetTable));
       if (!targetDraft) {
         targetDraft = Array.from(tableDrafts.values()).find(
           (candidate) =>
