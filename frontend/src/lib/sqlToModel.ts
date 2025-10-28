@@ -180,9 +180,13 @@ export const sqlToModel = (sql: string): DbModel => {
   const statements = splitStatements(sql);
 
   statements.forEach(({ text: statement, startLine }) => {
-    const lowered = statement.trim().toLowerCase();
+    const sanitized = statement.replace(/^\s*--.*$/gm, '').trim();
+    if (!sanitized) {
+      return;
+    }
+    const lowered = sanitized.toLowerCase();
     if (lowered.startsWith('create schema')) {
-      const match = statement.match(/create\s+schema\s+(?:if\s+not\s+exists\s+)?([^;]+)/i);
+      const match = sanitized.match(/create\s+schema\s+(?:if\s+not\s+exists\s+)?([^;]+)/i);
       if (match) {
         ensureSchema(match[1].trim());
       }
@@ -190,7 +194,7 @@ export const sqlToModel = (sql: string): DbModel => {
     }
 
     if (lowered.startsWith('create type')) {
-      const match = statement.match(/create\s+type\s+([^\s]+)\s+as\s+enum\s*\(([^)]+)\)\s*;?$/i);
+      const match = sanitized.match(/create\s+type\s+([^\s]+)\s+as\s+enum\s*\(([^)]+)\)\s*;?$/i);
       if (!match) return;
       const qualified = match[1].trim();
       const [schemaName, typeName] = parseQualifiedName(qualified);
@@ -210,7 +214,7 @@ export const sqlToModel = (sql: string): DbModel => {
     }
 
     if (lowered.startsWith('create table')) {
-      const headerMatch = statement.match(/create\s+table\s+([^\s]+)\s*\((.*)\)\s*;?$/is);
+      const headerMatch = sanitized.match(/create\s+table\s+([^\s]+)\s*\((.*)\)\s*;?$/is);
       if (!headerMatch) {
         throw new Error(`Linha ${startLine}: não foi possível interpretar o comando CREATE TABLE.`);
       }
@@ -327,7 +331,7 @@ export const sqlToModel = (sql: string): DbModel => {
     }
 
     if (lowered.startsWith('comment on table')) {
-      const match = statement.match(/comment\s+on\s+table\s+([^\s]+)\s+is\s+(.+);?$/i);
+      const match = sanitized.match(/comment\s+on\s+table\s+([^\s]+)\s+is\s+(.+);?$/i);
       if (match) {
         const [schemaName, tableName] = parseQualifiedName(match[1].trim());
         tableComments.set(`${schemaName}.${tableName}`, stripSingleQuotes(match[2]));
@@ -336,7 +340,7 @@ export const sqlToModel = (sql: string): DbModel => {
     }
 
     if (lowered.startsWith('comment on column')) {
-      const match = statement.match(/comment\s+on\s+column\s+([^\s]+)\s+is\s+(.+);?$/i);
+      const match = sanitized.match(/comment\s+on\s+column\s+([^\s]+)\s+is\s+(.+);?$/i);
       if (match) {
         const cleaned = match[1].trim();
         const lastDot = cleaned.lastIndexOf('.');
