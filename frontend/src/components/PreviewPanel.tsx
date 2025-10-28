@@ -361,7 +361,7 @@ export const PreviewPanel = ({
               }}
               options={{
                 minimap: { enabled: false },
-                fontSize: 13,
+                fontSize: 12,
                 wordWrap: 'on',
                 scrollBeyondLastLine: false,
                 automaticLayout: true,
